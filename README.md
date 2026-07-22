@@ -9,9 +9,10 @@ Crazyswarm2 기반 Crazyflie 비행 테스트 리포.
 ## 구성
 
 ```
-.
-├── crazyswarm2/            # Crazyflie ROS 2 스택 (서버·드라이버)
-└── crazyflie_test/         # 비행 테스트 패키지
+ros2_ws/src/crazyflie-imo
+├── crazyswarm2/               # Crazyflie ROS 2 스택 (서버·드라이버)
+├── motion_capture_tracking/   # 모션 캡쳐 패키지
+└── crazyflie_test/            # 비행 테스트 패키지
 ```
 
 ## 실행 환경
@@ -99,9 +100,9 @@ ros2 run crazyflie_test multi_opticalflow
 
 ### 8자 궤적: 두 가지 방식
 
-| 스크립트 | 방식 | 특징 |
-| --- | --- | --- |
-| `figure8` | goTo 0.1s 샘플링 | 간단·직관적이나 끊김. opticalflow 드리프트 때문에 1바퀴만 (진폭 x±1.0 / y±0.6m) |
+| 스크립트       | 방식               | 특징                                                                                                     |
+| -------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
+| `figure8`      | goTo 0.1s 샘플링   | 간단·직관적이나 끊김. opticalflow 드리프트 때문에 1바퀴만 (진폭 x±1.0 / y±0.6m)                          |
 | `figure8_traj` | 다항식 궤적 업로드 | 부드럽고 정석. 원점 중심 ~2.0×1.0m 고정 형상, 속도는 `TIMESCALE`(클수록 느림). mocap 전환 시 그대로 사용 |
 
 - 둘 다 **방 중앙 출발** 가정(원점 중심으로 8자). 테스트 공간 x=11m·y=8m 기준 벽까지 여유 충분.
