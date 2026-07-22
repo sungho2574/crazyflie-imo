@@ -6,7 +6,7 @@
   ros__parameters:
     # one of "optitrack", "optitrack_closed_source", "vicon", "qualisys", "nokov", "vrpn", "motionanalysis"
     type: "qualisys"
-    hostname: "192.168.0.0"       # TODO: QTM 실행 PC의 IP 또는 hostname 으로 교체
+    hostname: "192.168.0.33"      # QTM 실행 PC IP
 
     topics:
       frame_id: "mocap"

@@ -6,11 +6,23 @@ fileversion: 3
 robots:
   cf231:
     enabled: true
-    uri: radio://0/80/2M/E7E7E7E7E7      # TODO: 실제 URI로 교체
+    uri: radio://0/80/2M/E7E7E7E7E7      # 현재값 유지 (Crazyflie 기본 주소)
     initial_position: [0.0, 0.0, 0.0]     # mocap 좌표계 기준 이륙 위치
-    type: cf21_mocap_deck                 # 마커 구성에 따라 cf21_single_marker 로 변경 가능
+    type: cf21_active                     # Active Marker Deck + Qualisys
 
 robot_types:
+  cf21_active:
+    # Active Marker Deck + Qualisys: QTM 이 마커 ID 로 rigid body(6DOF)를 직접 산출 -> vendor.
+    # ⚠️ QTM 의 rigid body(AIM) 이름을 crazyflie 이름과 동일하게(cf231) 만들어야 pose 가 매칭됨.
+    motion_capture:
+      enabled: true
+      tracking: "vendor"                   # mocap 소프트웨어(QTM)가 주는 6DOF 사용
+    big_quad: false
+    battery:
+      voltage_warning: 3.8
+      voltage_critical: 3.7
+
+  # (참고) passive 반사마커용 타입 — 지금은 사용 안 함
   cf21_mocap_deck:
     motion_capture:
       enabled: true
