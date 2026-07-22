@@ -123,6 +123,18 @@ ros2 run crazyflie_test figure8_continuous --laps 3 --period 8.0 --a 1.0 --b 0.5
   **mocap 모드 권장**, opticalflow 라면 `--period` 를 크게(느리게) 잡을 것.
 - 실행 시 형상·최대 속도·최대 가속도를 출력하니 확인 후 날릴 것.
 
+### 추락 후 복구 — High-Level Commander 락
+
+추락하면 기체에 락이 걸려 `takeoff` 등 high-level 명령을 보내도 **반응하지 않는다**
+(서버 로그에는 명령이 정상 발행된 것처럼 찍히므로 헷갈리기 쉽다). 이때는 재부팅이 필요하다.
+
+```bash
+ros2 run crazyflie reboot --uri radio://0/80/2M/E7E7E7E7E7
+```
+
+> ⚠️ 라디오를 **직접** 여는 명령이라 crazyflie_server 가 떠 있으면 동글 충돌(busy)이 난다.
+> launch 를 먼저 Ctrl+C 로 끈 뒤 실행할 것.
+
 ## 후처리
 
 ```bash
