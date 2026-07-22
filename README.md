@@ -1,25 +1,39 @@
-# crazyflie_test
+# crazyflie-imo
 
-Crazyswarm2 기반 Crazyflie 2.1 기체 비행 테스트용 커스텀 ROS 2 패키지.
+Crazyswarm2 기반 Crazyflie 비행 테스트 리포. crazyswarm2(업스트림)를 git submodule 로 포함하고,
+테스트용 ROS 2 패키지(`crazyflie_test`)를 함께 담는다.
 
-- 단일, 군집 예제 모두 제공
-- Flow deck, mocap(Qualisys) 예제 모두 제공
+- 단일 / 군집 예제 모두 제공
+- Flow deck(opticalflow) / mocap(Qualisys) 예제 모두 제공
 - IMU raw · 모터 PWM · pose 를 rosbag 으로 기록
+
+## 구성
+
+```
+.
+├── crazyswarm2/            # git submodule (업스트림, 수정하지 않음)
+└── crazyflie_test/         # ROS 2 패키지 (본체)
+    ├── config/             # crazyflies_*.yaml, motion_capture.yaml
+    ├── launch/launch.py
+    ├── scripts/bag_to_csv.py
+    └── crazyflie_test/     # hello_world / goto_square / figure8 / multi_opticalflow
+```
 
 ## 실행 환경
 
 - Ubuntu 22.04 + ROS 2 Humble
 - Ubuntu 24.04 + ROS 2 Jazzy
 
-## 워크스페이스 배치
+## 설치 (recursive clone)
 
-이 패키지는 다음과 같이 배치해서 사용한다.
+crazyswarm2 를 git submodule 로 포함하므로 `--recursive` 로 클론하면 crazyswarm2 와
+그 하위 submodule 까지 함께 받아진다. `~/ros2_ws/src/` 아래에 두면 colcon 이 두 패키지를 모두 찾는다.
 
-```
-ros2_ws/
-└── src/
-    ├── crazyswarm2/
-    └── crazyflie_test/
+```bash
+cd ~/ros2_ws/src
+git clone --recursive https://github.com/sungho2574/crazyflie_test.git
+# 이미 --recursive 없이 클론했다면:
+#   cd crazyflie_test && git submodule update --init --recursive
 ```
 
 ## 빌드
@@ -27,6 +41,8 @@ ros2_ws/
 ```bash
 cd ~/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
+# 최초 1회 crazyswarm2 의존성 설치 (rosdep)
+rosdep install --from-paths src --ignore-src -r -y
 colcon build
 source install/setup.bash
 ```
@@ -88,7 +104,7 @@ ros2 run crazyflie_test multi_opticalflow
 ## 후처리
 
 ```bash
-python3 src/crazyflie_test/scripts/bag_to_csv.py ~/flight_logs/<bag_dir> ~/flight_logs/<out_dir>
+python3 crazyflie_test/scripts/bag_to_csv.py ~/flight_logs/<bag_dir> ~/flight_logs/<out_dir>
 ```
 
 토픽별 타임스탬프가 다르므로, 시계열 정렬이 필요하면 CSV 로드 후 pandas 등으로

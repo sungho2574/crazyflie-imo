@@ -1,0 +1,3 @@
+[submodule "crazyswarm2"]
+	path = crazyswarm2
+	url = https://github.com/IMRCLab/crazyswarm2.git
