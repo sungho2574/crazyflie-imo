@@ -23,7 +23,7 @@ Crazyswarm2 기반 Crazyflie 비행 테스트 리포.
 
 ```bash
 cd ~/ros2_ws/src
-git clone --recursive https://github.com/sungho2574/crazyflie_test.git
+git clone --recursive https://github.com/sungho2574/crazyflie-imo.git
 ```
 
 이미 `--recursive` 없이 클론했다면
