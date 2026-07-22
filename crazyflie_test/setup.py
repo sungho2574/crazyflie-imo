@@ -28,6 +28,7 @@ setup(
             'goto_square = crazyflie_test.goto_square:main',
             'figure8 = crazyflie_test.figure8:main',
             'figure8_traj = crazyflie_test.figure8_traj:main',
+            'figure8_continuous = crazyflie_test.figure8_continuous:main',
             'multi_opticalflow = crazyflie_test.multi_opticalflow:main',
         ],
     },

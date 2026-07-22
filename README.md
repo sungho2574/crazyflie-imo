@@ -90,8 +90,9 @@ ros2 bag record /poses /cf231/imu_raw /cf231/motor_pwm \
 # 터미널 3 — 테스트 스크립트 (서버 유지한 채 여러 번 실행 가능)
 ros2 run crazyflie_test hello_world
 ros2 run crazyflie_test goto_square
-ros2 run crazyflie_test figure8        # 8자 — goTo 샘플링 (간단)
-ros2 run crazyflie_test figure8_traj   # 8자 — 다항식 궤적 업로드 (부드러움, 정석)
+ros2 run crazyflie_test figure8            # 8자 — goTo 샘플링 (간단)
+ros2 run crazyflie_test figure8_traj       # 8자 — 다항식 궤적 업로드 (부드러움, 정석)
+ros2 run crazyflie_test figure8_continuous # 8자 — 여러 바퀴 끊김 없이 연속
 ros2 run crazyflie_test multi_opticalflow
 ```
 
@@ -104,7 +105,8 @@ ros2 run crazyflie_test multi_opticalflow
 | 스크립트       | 방식               | 특징                                                                                                     |
 | -------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
 | `figure8`      | goTo 0.1s 샘플링   | 간단·직관적이나 끊김. opticalflow 드리프트 때문에 1바퀴만 (진폭 x±1.0 / y±0.6m)                          |
-| `figure8_traj` | 다항식 궤적 업로드 | 부드럽고 정석. 크기·속도를 실행 옵션으로 조절. mocap 전환 시 그대로 사용 |
+| `figure8_traj` | 다항식 궤적 업로드 | 부드럽고 정석. 크기·속도를 실행 옵션으로 조절. **단, 궤적 시작/끝 속도가 0이라 여러 바퀴 돌면 매 바퀴 원점에서 멈췄다 재출발** |
+| `figure8_continuous` | cmdFullState 스트리밍 | **여러 바퀴를 끊김 없이 연속** 비행. 주기적 리사주를 해석적으로 계산해 스트리밍 |
 
 `figure8_traj` 옵션:
 
@@ -128,6 +130,28 @@ ros2 run crazyflie_test figure8_traj --scale 2.0 --timescale 2.0 --height 1.0 --
 - 둘 다 **방 중앙 출발** 가정(원점 중심으로 8자). 테스트 공간 x=11m·y=8m 기준 벽까지 여유 충분.
 - `figure8_traj` 의 `data/figure8.csv` 는 crazyswarm2(crazyflie_examples, MIT)에서 가져옴.
 - opticalflow 에선 정밀 추종보다 "나는지" 확인용. 정밀 8자 추종은 **mocap 모드** 권장.
+
+`figure8_continuous` 옵션 (여러 바퀴 연속 비행):
+
+```bash
+ros2 run crazyflie_test figure8_continuous --laps 3 --period 8.0 --a 1.0 --b 0.5
+```
+
+| 옵션 | 기본 | 설명 |
+| --- | --- | --- |
+| `--a` / `--b` | 1.0 / 0.5 | x(전진) / y(좌우) 진폭 [m] |
+| `--period` | 8.0 | 한 바퀴 주기 [s]. **작을수록 빠름** |
+| `--laps` | 3 | 바퀴 수 |
+| `--height` | 1.0 | 비행 고도 [m] |
+| `--rate` | 50 | setpoint 스트리밍 주파수 [Hz] |
+| `--ramp` | 2.0 | 시작/종료 가감속 시간 [s] |
+
+- 리사주 8자(`x=A·sin φ`, `y=B·sin 2φ`)는 어느 위상에서도 속도가 0이 아니라 **원점에서 멈추지 않는다.**
+  호버(속도 0)에서 매끄럽게 진입하려고 위상 속도 φ̇ 를 0→최대→0 으로 램프시킨다(시간 워핑) —
+  경로는 그대로 두고 시작/종료만 부드럽게 만드는 방식이라 `t=0` 에서 속도·가속도가 정확히 0이다.
+- ⚠️ `cmdFullState` 는 **low-level 제어**라 high-level commander 를 우회한다. 상태추정이 튼튼해야 하므로
+  **mocap 모드 권장**, opticalflow 라면 `--period` 를 크게(느리게) 잡을 것.
+- 실행 시 형상·최대 속도·최대 가속도를 출력하니 확인 후 날릴 것.
 
 ## 후처리
 
