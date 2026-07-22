@@ -84,7 +84,8 @@ ros2 launch crazyflie_test launch.py mode:=opticalflow backend:=sim
 
 # 터미널 2 — 로깅 (비행 직전 시작). 멀티는 기체별 토픽으로 교체 (예: /cf1/... /cf2/... /cf3/...)
 # /poses = mocap 원본 = ground truth (mocap 모드에서만 존재)
-ros2 bag record /poses /cf231/imu_raw /cf231/motor_pwm \
+# /cf231/pose = 드론 온보드 추정값 (GT 와 비교용)
+ros2 bag record /poses /cf231/pose /cf231/imu_raw /cf231/motor_pwm \
   -o ~/flight_logs/$(date +%Y%m%d_%H%M%S)
 
 # 터미널 3 — 테스트 스크립트 (서버 유지한 채 여러 번 실행 가능)
@@ -167,11 +168,12 @@ python3 crazyflie_test/scripts/bag_to_csv.py ~/flight_logs/<bag_dir> ~/flight_lo
 | 토픽               | 내용                                 | 단위 / 비고                                        |
 | ------------------ | ------------------------------------ | -------------------------------------------------- |
 | `/poses`           | **mocap 원본 pose = ground truth**   | `NamedPoseArray`. mocap 모드에서만 존재            |
+| `/cf231/pose`      | 드론 온보드 Kalman **추정값**        | GT 아님. IMU 융합 + 라디오 왕복 지연 포함          |
 | `/cf231/imu_raw`   | `acc.x/y/z`, `gyro.x/y/z`            | acc=g, gyro=deg/s. 완전 raw 아님(**필터 후** 값)   |
 | `/cf231/motor_pwm` | `motor.m1~m4`                        | **PWM(0~65535)**, 뉴턴 추력 아님                   |
 
-- **GT 는 `/poses` 를 쓴다.** `/cf231/pose` 는 드론 온보드 Kalman **추정값**(IMU 융합 + 라디오 왕복 지연)이라
-  ground truth 가 아니다. 추정 성능을 GT 와 비교하고 싶을 때만 `/cf231/pose` 를 함께 기록할 것.
+- **GT 는 `/poses`, 추정값은 `/cf231/pose`** 로 서로 다른 값이다. 둘을 같이 기록해 두면
+  온보드 추정 성능(오차·지연)을 GT 대비로 평가할 수 있다. `/cf231/pose` 를 GT 로 쓰지 말 것.
 - `/poses` 는 `NamedPoseArray`(모든 강체를 이름과 함께 담음) 라, CSV 로는
   `poses.0.name`, `poses.0.pose.position.x` … 형태로 펼쳐진다.
 - 모터 PWM → 추력(N) 변환은 이 패키지 범위 밖. PWM 을 기록해 두고 오프라인에서
