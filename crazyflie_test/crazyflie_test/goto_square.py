@@ -2,7 +2,7 @@
 from crazyflie_py import Crazyswarm
 
 HEIGHT = 1.0
-SIDE = 0.5          # m — 비행 공간에 맞춰 조정
+SIDE = 1.0          # m — 비행 공간에 맞춰 조정
 LEG_DURATION = 3.0
 SETTLE = 1.0
 
