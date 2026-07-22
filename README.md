@@ -88,13 +88,25 @@ ros2 bag record /cf231/pose /cf231/imu_raw /cf231/motor_pwm \
 # 터미널 3 — 테스트 스크립트 (서버 유지한 채 여러 번 실행 가능)
 ros2 run crazyflie_test hello_world
 ros2 run crazyflie_test goto_square
-ros2 run crazyflie_test figure8
+ros2 run crazyflie_test figure8        # 8자 — goTo 샘플링 (간단)
+ros2 run crazyflie_test figure8_traj   # 8자 — 다항식 궤적 업로드 (부드러움, 정석)
 ros2 run crazyflie_test multi_opticalflow
 ```
 
 - `launch.py` 인자:
   - `mode`: `opticalflow`|`opticalflow_multi`|`mocap` (default `opticalflow`)
   - `backend`: `cflib`|`cpp`|`sim` (default `cflib`)
+
+### 8자 궤적: 두 가지 방식
+
+| 스크립트 | 방식 | 특징 |
+| --- | --- | --- |
+| `figure8` | goTo 0.1s 샘플링 | 간단·직관적이나 끊김. opticalflow 드리프트 때문에 1바퀴만 (진폭 x±1.0 / y±0.6m) |
+| `figure8_traj` | 다항식 궤적 업로드 | 부드럽고 정석. 원점 중심 ~2.0×1.0m 고정 형상, 속도는 `TIMESCALE`(클수록 느림). mocap 전환 시 그대로 사용 |
+
+- 둘 다 **방 중앙 출발** 가정(원점 중심으로 8자). 테스트 공간 x=11m·y=8m 기준 벽까지 여유 충분.
+- `figure8_traj` 의 `data/figure8.csv` 는 crazyswarm2(crazyflie_examples, MIT)에서 가져옴.
+- opticalflow 에선 정밀 추종보다 "나는지" 확인용. 정밀 8자 추종은 **mocap 모드** 권장.
 
 ## 후처리
 
