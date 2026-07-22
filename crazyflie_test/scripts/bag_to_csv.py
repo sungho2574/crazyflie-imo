@@ -39,7 +39,11 @@ def flatten(msg, prefix=''):
             out.update(flatten(value, prefix + field + '.'))
         elif isinstance(value, (list, tuple)):
             for i, v in enumerate(value):
-                out[f'{prefix}{field}.{i}'] = v
+                # 배열 원소가 메시지인 경우(예: NamedPoseArray.poses)도 재귀로 평탄화
+                if hasattr(v, 'get_fields_and_field_types'):
+                    out.update(flatten(v, f'{prefix}{field}.{i}.'))
+                else:
+                    out[f'{prefix}{field}.{i}'] = v
         else:
             out[prefix + field] = value
     return out
