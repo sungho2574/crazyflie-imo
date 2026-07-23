@@ -1,6 +1,6 @@
 # crazyflie-imo
 
-Crazyswarm2 기반 Crazyflie 비행 테스트 리포.
+Crazyswarm2 기반 Crazyflie 비행 테스트 레포.
 
 - 단일 / 군집 예제 모두 제공
 - Flow deck(opticalflow) / mocap(Qualisys) 예제 모두 제공
@@ -33,7 +33,7 @@ git clone --recursive https://github.com/sungho2574/crazyflie-imo.git
 git submodule update --init --recursive
 ```
 
-## 설치
+## 빌드
 
 ```bash
 cd ~/ros2_ws
@@ -60,20 +60,17 @@ ros2 run crazyflie_test hello_world
 ```
 
 - Terminal 3: 시각화
+  - Global Options → Fixed Frame → `world` 선택
+  - Add 버튼 클릭 → TF 선택
 
 ```bash
 rviz2
 ```
 
-- 이때 rviz2 화면에서
-  - Global Options → Fixed Frame → `world` 선택
-  - Add 버튼 클릭 → TF 선택
-
 ### 확장 버전 (launch/logging/test)
 
 ```bash
 # 터미널 1 — 서버 (config 적용 지점)
-export ROS_DOMAIN_ID=42          # 랩 공용망이면 충돌 방지용
 ros2 launch crazyflie_test launch.py mode:=opticalflow   # 기본값 (Flow deck 단일)
 # optical flow 멀티 기체 (편대)
 ros2 launch crazyflie_test launch.py mode:=opticalflow_multi
@@ -91,10 +88,8 @@ ros2 bag record /poses /cf231/pose /cf231/imu_raw /cf231/motor_pwm \
 # 터미널 3 — 테스트 스크립트 (서버 유지한 채 여러 번 실행 가능)
 ros2 run crazyflie_test hello_world
 ros2 run crazyflie_test goto_square
-ros2 run crazyflie_test figure8            # 8자 — goTo 샘플링 (간단)
-ros2 run crazyflie_test figure8_traj       # 8자 — 다항식 궤적 업로드 (부드러움, 정석)
-ros2 run crazyflie_test figure8_continuous # 8자 — 여러 바퀴 끊김 없이 연속
-ros2 run crazyflie_test multi_opticalflow
+ros2 run crazyflie_test figure8            # 8자
+ros2 run crazyflie_test multi_square   # 편대 3기체
 ```
 
 - `launch.py` 인자:
@@ -123,9 +118,9 @@ ros2 run crazyflie_test figure8_continuous --laps 3 --period 8.0 --a 1.0 --b 0.5
   **mocap 모드 권장**, opticalflow 라면 `--period` 를 크게(느리게) 잡을 것.
 - 실행 시 형상·최대 속도·최대 가속도를 출력하니 확인 후 날릴 것.
 
-### 추락 후 복구 — High-Level Commander 락
+### 추락 후 복구
 
-추락하면 기체에 락이 걸려 `takeoff` 등 high-level 명령을 보내도 **반응하지 않는다**
+기체가 추락하면 High-Level Commander Lock이 걸려 `takeoff` 등 명령을 보내도 **반응하지 않는다**
 (서버 로그에는 명령이 정상 발행된 것처럼 찍히므로 헷갈리기 쉽다). 이때는 재부팅이 필요하다.
 
 ```bash
@@ -135,7 +130,7 @@ ros2 run crazyflie reboot --uri radio://0/80/2M/E7E7E7E7E7
 > ⚠️ 라디오를 **직접** 여는 명령이라 crazyflie_server 가 떠 있으면 동글 충돌(busy)이 난다.
 > launch 를 먼저 Ctrl+C 로 끈 뒤 실행할 것.
 
-## 후처리
+## bag 데이터 변환
 
 ```bash
 python3 crazyflie_test/scripts/bag_to_csv.py ~/flight_logs/<bag_dir> ~/flight_logs/<out_dir>
