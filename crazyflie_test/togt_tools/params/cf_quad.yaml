@@ -1,0 +1,12 @@
+# Crazyflie 2.1 (+ Flow deck)
+mass:               0.033      # kg
+gravity:            9.8066
+inertia:            [1.4e-5, 1.4e-5, 2.17e-5]
+armLength:          0.046      # m  모터 중심까지
+beta:               45.0       # deg  X 배치
+torCoeff:           0.006      # 항력토크/추력 비 [m]
+
+# TOGT refinement
+thrust_min: 0.0
+thrust_max: 17.6              # m/s^2  (0.145N x 4 / 0.033kg = 17.6, TWR 1.8)
+omega_max:  [4.0, 4.0, 2.0]   # rad/s

@@ -1,0 +1,5 @@
+planningInit:   "init/cf_planning.yaml"
+lbfgsInit:      "init/cf_lbfgs.yaml"
+planningRefine: "refine/cf_planning.yaml"
+lbfgsRefine:    "refine/cf_lbfgs.yaml"
+quadrotor:      "cf_quad.yaml"

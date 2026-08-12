@@ -1,0 +1,30 @@
+# Refine
+# 세그먼트 8개(이륙→G1, G1→G2, ..., G7→착륙) × piecesPerSegment = 총 조각 수.
+# 크플 펌웨어 궤적 메모리(~32조각)를 넘지 않게 3으로 둔다(8×3=24).
+piecesPerSegment:   3
+speedGuess:         0.8
+maxVelNorm:         2.0
+maxOmgXY:           4.0
+maxOmgZ:            2.0
+maxTiltedAngle:     0.6
+maxThr:             0.13
+minThr:             0.005
+
+weightTime:         1.0
+weightEnergy:       0.0
+weightPos:          1.0
+weightVel:          1.0
+weightOmg:          1.0
+weightRot:          1.0
+weightThr:          1.0
+smoothingEps:       1.0e-2
+numConstPena:       8
+
+dynamicConstCheck:  false
+minNumCheck:        8
+maxNumCheck:        32
+checkTimeSec:       0.05
+
+boundX:             [-3.5, 3.5]
+boundY:             [-5.0, 5.0]
+boundZ:             [0.55, 1.40]

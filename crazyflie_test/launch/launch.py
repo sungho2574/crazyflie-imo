@@ -13,7 +13,7 @@ def generate_launch_description():
     mode_arg = DeclareLaunchArgument(
         'mode',
         default_value='opticalflow',
-        description='opticalflow(기본), opticalflow_multi, mocap',
+        description='opticalflow(기본), opticalflow_multi, mocap, gate',
     )
     backend_arg = DeclareLaunchArgument(
         'backend',

@@ -1,0 +1,50 @@
+# 게이트 코스 전용 로봇 설정 (Flow deck 온보드 추정, mocap 미사용).
+# crazyflies_opticalflow.yaml 과 같고 initial_position 만 다르다.
+#
+# ⚠️ initial_position 은 gates.yaml 의 start 와 **반드시** 같아야 한다.
+#    기체는 이 좌표를 원점 삼아 위치를 추정하므로, 다르면 게이트 좌표가 통째로
+#    어긋난다. gate_flight 가 실행 전에 검사하고 다르면 이륙을 거부한다.
+#    gates.yaml 의 start 를 바꾸면 여기 initial_position 도 같이 바꿀 것.
+#    (다른 예제의 원점을 건드리지 않으려고 opticalflow 설정과 파일을 나눠 뒀다)
+# ⚠️ URI 는 실기체 값으로 교체할 것.
+fileversion: 3
+
+robots:
+  cf231:
+    enabled: true
+    uri: radio://0/80/2M/E7E7E7E7E7      # TODO: 실제 URI로 교체
+    initial_position: [2.5, -3.4, 0.0]   # = gates.yaml 의 start
+    type: cf21_flow
+
+robot_types:
+  cf21_flow:
+    motion_capture:
+      enabled: false                      # mocap 미사용
+      tracking: "vendor"
+    big_quad: false
+    battery:
+      voltage_warning: 3.8
+      voltage_critical: 3.7
+
+all:
+  reference_frame: "world"
+  firmware_params:
+    commander:
+      enHighLevel: 1
+    stabilizer:
+      estimator: 2      # Kalman
+      controller: 1     # 1 = PID — Flow deck 사용 시 Mellinger보다 안정적
+  firmware_logging:
+    enabled: true
+    default_topics:
+      pose:
+        frequency: 50
+      status:
+        frequency: 1    # Hz — 배터리/통신 상태 (voltage_warning 감시에 필요)
+    custom_topics:
+      imu_raw:
+        frequency: 100
+        vars: ["acc.x", "acc.y", "acc.z", "gyro.x", "gyro.y", "gyro.z"]
+      motor_pwm:
+        frequency: 100
+        vars: ["motor.m1", "motor.m2", "motor.m3", "motor.m4"]
