@@ -16,8 +16,8 @@ room:
 # ⚠️ crazyflies_*.yaml 의 initial_position 을 [x, y, 0.0] 으로 맞춰야 한다.
 #    (gate_flight 가 실행 전에 검사하고, 다르면 멈춘다)
 start:
-  x: 2.5
-  y: -3.4
+  x: 1.5
+  y: -2.0
   takeoff_z: 1.25       # 이륙 후 호버 고도 [m]. 게이트 통과 고도와 같게
 gate:
   inner_size: 0.5           # 게이트 개구부 한 변 [m] (물리 크기)
@@ -33,10 +33,10 @@ gate:
   #   궤적 중심이 중앙 ±0.09 m, 프로펠러 끝이 프레임에서 0.10 m 뜬다.
   #   더 타이트(가운데로): frame_margin ↑. 더 여유롭게(빠르게): frame_margin ↓.
 gates:
-  - {id: 1, x: 2.5, y: -2.5, mount_z: 1.0, yaw_deg: 270}
-  - {id: 2, x: 0.5, y: 3.5, mount_z: 1.0, yaw_deg: 310}
-  - {id: 3, x: 2.5, y: 2.5, mount_z: 1.0, yaw_deg: 60}
-  - {id: 4, x: -0.5, y: -0.5, mount_z: 1.0, yaw_deg: 180}
-  - {id: 5, x: -2.0, y: 4.0, mount_z: 1.0, yaw_deg: 270}
-  - {id: 6, x: -2.0, y: 4.0, mount_z: 0.5, yaw_deg: 90}
-  - {id: 7, x: -2.0, y: -3.0, mount_z: 1.0, yaw_deg: 30}
+  - {id: 1, x: 1.5, y: -1.5, mount_z: 1.0, yaw_deg: 270}
+  - {id: 2, x: 0.0, y: 2.0, mount_z: 1.0, yaw_deg: 310}
+  - {id: 3, x: 2.0, y: 2.0, mount_z: 1.0, yaw_deg: 60}
+  - {id: 4, x: 0.0, y: 0.0, mount_z: 1.0, yaw_deg: 180}
+  - {id: 5, x: -1.5, y: 2.0, mount_z: 1.0, yaw_deg: 270}
+  - {id: 6, x: -1.5, y: 2.0, mount_z: 0.5, yaw_deg: 90}
+  - {id: 7, x: -1.5, y: -1.5, mount_z: 1.0, yaw_deg: 30}
