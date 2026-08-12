@@ -1,10 +1,11 @@
 # TOGT-Planner -> 크플 궤적 변환기 (오프라인 전용, colcon 빌드에 넣지 않는다)
 #
-#   cmake -S . -B build -DTOGT_DIR=/path/to/TOGT-Planner
-#   cmake --build build -j
+#   cmake -S . -B build && cmake --build build -j
 #   ./build/togt_plan <params_dir> <setups.yaml> <track.yaml> <out.csv>
 #
-# TOGT-Planner 는 별도로 clone 해 둔다(서브모듈로 넣지 않음 — 오프라인 도구 결정).
+# TOGT-Planner 소스는 이 폴더의 **git 서브모듈** TOGT-Planner/ 에 있다(기본값).
+#   git submodule update --init --recursive   # 처음 한 번
+# 다른 경로를 쓰려면 -DTOGT_DIR=/path 또는 환경변수 TOGT_DIR.
 # upstream 은 cmake 3.25 를 요구하지만, 소스는 3.16 으로도 빌드된다(검증됨).
 cmake_minimum_required(VERSION 3.16)
 project(togt_plan CXX)
@@ -13,13 +14,18 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# 우선순위: -DTOGT_DIR > 환경변수 TOGT_DIR > 서브모듈(TOGT-Planner/)
 if(NOT DEFINED TOGT_DIR)
   set(TOGT_DIR "$ENV{TOGT_DIR}")
 endif()
-if(TOGT_DIR STREQUAL "" OR NOT EXISTS "${TOGT_DIR}/include/drolib")
+if(TOGT_DIR STREQUAL "")
+  set(TOGT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/TOGT-Planner")
+endif()
+if(NOT EXISTS "${TOGT_DIR}/include/drolib")
   message(FATAL_ERROR
-    "TOGT_DIR 이 TOGT-Planner 소스를 가리켜야 합니다. "
-    "-DTOGT_DIR=/path/to/TOGT-Planner 또는 환경변수 TOGT_DIR 로 지정하세요.")
+    "TOGT-Planner 소스를 못 찾았습니다(${TOGT_DIR}). 서브모듈을 받으세요:\n"
+    "  git submodule update --init --recursive\n"
+    "또는 -DTOGT_DIR=/path/to/TOGT-Planner 로 지정하세요.")
 endif()
 
 find_package(Eigen3 3.3 REQUIRED)

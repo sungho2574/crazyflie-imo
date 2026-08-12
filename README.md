@@ -138,13 +138,16 @@ CSV(`config/gate_trajectory.csv`)로 저장해 두고, 비행은 **크플 펌웨
 기본 `gates.yaml` 로 만든 `config/gate_trajectory.csv` 가 이미 커밋돼 있어 **평소
 비행에는 이 단계가 필요 없다.** 게이트 배치를 바꿨을 때만 다시 만든다.
 
-```bash
-# TOGT-Planner 를 별도로 clone (서브모듈 아님 — 오프라인 도구)
-git clone https://github.com/FSC-Lab/TOGT-Planner ~/TOGT-Planner
+TOGT-Planner 소스는 `crazyflie_test/togt_tools/TOGT-Planner/` **git 서브모듈**로
+들어 있다. `--recursive` 로 클론했으면 이미 받아져 있고, 아니면 한 번만:
 
-# gates.yaml → TOGT → config/gate_trajectory.csv (togt_plan 을 자동 빌드)
-export TOGT_DIR=~/TOGT-Planner
-ros2 run crazyflie_test plan_gate_trajectory     # 또는: python3 -m crazyflie_test.plan_gate_trajectory
+```bash
+git submodule update --init --recursive     # TOGT-Planner 서브모듈 받기 (최초 1회)
+
+# gates.yaml → TOGT → config/gate_trajectory.csv (togt_plan 을 서브모듈에서 자동 빌드)
+ros2 run crazyflie_test plan_gate_trajectory
+# 또는: python3 -m crazyflie_test.plan_gate_trajectory
+# 다른 TOGT 경로를 쓰려면: --togt-dir /path  (또는 환경변수 TOGT_DIR)
 ```
 
 출력에서 **조각 수 ≤ 32**(펌웨어 궤적 메모리 한계), 방 이탈 0, 게이트 프레임 간섭
@@ -367,9 +370,8 @@ ros2 run crazyflie_test star    --laps 3 --speed 1.0 --yaw constant
 #### sim IMU/PWM 확장 (⚠ 서브모듈 패치)
 
 sim(`crazyflie_sim`)은 원래 `firmware_logging` 을 무시해 **imu_raw/motor_pwm/pose 를
-안 낸다**(pose 는 `/tf` 뿐). 학습 데이터를 sim 에서 모으려고
-`crazyswarm2/crazyflie_sim/crazyflie_sim/crazyflie_server.py` 를 확장해, **실기체와 동일
-토픽·포맷**으로 내보내게 했다:
+안 낸다**(pose 는 `/tf` 뿐). 학습 데이터를 sim 에서 모으려고 sim 을 확장해 **실기체와
+동일 토픽·포맷**으로 내보내게 했다:
 
 - `/<cf>/pose`      — `geometry_msgs/PoseStamped` (sim 은 ground truth)
 - `/<cf>/imu_raw`   — `LogDataGeneric.values = [acc.x, acc.y, acc.z(g), gyro.x,y,z(deg/s)]`
@@ -378,8 +380,16 @@ sim(`crazyflie_sim`)은 원래 `firmware_logging` 을 무시해 **imu_raw/motor_
 acc 는 SIL 이 안 채우므로 동역학에서 **비추력**(drag-free, 바디 `[0,0,총추력/mass]`,
 호버≈+1g z)으로 합성하고, gyro 는 `sensors.gyro`, PWM 은 `motors_thrust_pwm`(컨트롤러가
 계산한 값)을 그대로 쓴다. ~100 Hz 로 throttle. sim 파라미터 `sim.log_topics:=false` 로 끈다.
-symlink-install 이라 재빌드 불필요이며, **서브모듈 sync 시 덮일 수 있다**(gate 의
-`plan_start_trajectory` 패치와 같은 성격).
+
+**이 변경은 `crazyswarm2` 서브모듈 내부 수정**이라, 직접 커밋하지 않고 **패치 파일**로
+보관한다(`crazyflie_test/patches/`). `git submodule update` 로 원복되면 다시 적용한다.
+같은 패치에 게이트 궤적용 `plan_start_trajectory` 시그니처 수정도 함께 들어 있다.
+
+```bash
+git submodule update --init --recursive         # sim 서브모듈 받기
+crazyflie_test/patches/apply_sim_patch.sh        # 패치 적용 (imu/pwm/pose 발행)
+# --revert 로 원복, --check 로 적용 여부 확인. 자세한 내용: crazyflie_test/patches/README.md
+```
 
 > **sim vs 실기체 데이터 차이**: sim pose 는 GT(온보드 추정 아님), imu 는 drag-free·무노이즈,
 > pwm 은 컨트롤러 출력 그대로. 실기체 imu 는 필터 후 값·노이즈 포함, pose 는 온보드 Kalman

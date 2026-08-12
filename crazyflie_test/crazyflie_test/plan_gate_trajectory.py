@@ -84,16 +84,23 @@ def gates_to_track(course, track_path):
 
 
 def ensure_togt_plan(togt_dir, tools_dir):
-    """togt_plan 실행파일 경로. 없으면 빌드한다."""
+    """togt_plan 실행파일 경로. 없으면 빌드한다.
+
+    TOGT 소스는 기본적으로 togt_tools 의 **git 서브모듈** TOGT-Planner/ 를 쓴다.
+    --togt-dir / 환경변수 TOGT_DIR 가 있으면 그걸 우선한다.
+    """
     build_dir = os.path.join(tools_dir, 'build')
     exe = os.path.join(build_dir, 'togt_plan')
     if os.path.exists(exe):
         return exe
-    if not togt_dir or not os.path.isdir(os.path.join(togt_dir, 'include', 'drolib')):
+    submodule = os.path.join(tools_dir, 'TOGT-Planner')
+    togt_dir = togt_dir or submodule
+    if not os.path.isdir(os.path.join(togt_dir, 'include', 'drolib')):
         sys.exit(
-            'TOGT-Planner 소스를 찾지 못했다. --togt-dir 또는 환경변수 TOGT_DIR 로\n'
-            '  git clone https://github.com/FSC-Lab/TOGT-Planner 한 경로를 지정하세요.')
-    print(f'[plan] togt_plan 빌드: {build_dir}')
+            f'TOGT-Planner 소스를 찾지 못했다({togt_dir}).\n'
+            '  서브모듈을 받으세요:  git submodule update --init --recursive\n'
+            '  또는 --togt-dir / 환경변수 TOGT_DIR 로 경로를 지정하세요.')
+    print(f'[plan] togt_plan 빌드: {build_dir} (TOGT_DIR={togt_dir})')
     subprocess.run(
         ['cmake', '-S', tools_dir, '-B', build_dir, f'-DTOGT_DIR={togt_dir}'],
         check=True)

@@ -1,0 +1,143 @@
+diff --git a/crazyflie_sim/crazyflie_sim/crazyflie_server.py b/crazyflie_sim/crazyflie_sim/crazyflie_server.py
+index e1e280c..7ab5ee5 100755
+--- a/crazyflie_sim/crazyflie_sim/crazyflie_server.py
++++ b/crazyflie_sim/crazyflie_sim/crazyflie_server.py
+@@ -9,11 +9,13 @@ A crazyflie server for simulation.
+ 
+ from functools import partial
+ import importlib
++import math
+ 
+-from crazyflie_interfaces.msg import FullState, Hover
++from crazyflie_interfaces.msg import FullState, Hover, LogDataGeneric
+ from crazyflie_interfaces.srv import GoTo, Land, Takeoff
+ from crazyflie_interfaces.srv import NotifySetpointsStop, StartTrajectory, UploadTrajectory
+-from geometry_msgs.msg import Twist
++from geometry_msgs.msg import PoseStamped, Twist
++import numpy as np
+ import rclpy
+ from rclpy.node import Node
+ import rowan
+@@ -21,6 +23,20 @@ from std_msgs.msg import String
+ from std_srvs.srv import Empty
+ 
+ 
++# 학습 데이터 수집용 로그 토픽 (crazyflie-imo 추가):
++# sim 은 원래 firmware_logging 을 무시해 imu_raw/motor_pwm/pose 를 안 낸다. 실기체와
++# 같은 토픽·포맷으로 내보내, 기존 rosbag/bag_to_csv 파이프라인을 그대로 쓸 수 있게 한다.
++_RAD2DEG = 180.0 / math.pi
++_DEFAULT_MASS = 0.034      # kg (crazyflie_sim Quadrotor 기본값)
++
++
++def _rpm_to_force(rpm):
++    """RPM → 로터 추력 [N] (backend/np.py 의 rpm_to_force 와 동일 계수)."""
++    p = [2.55077341e-08, -4.92422570e-05, -1.51910248e-01]
++    grams = np.polyval(p, np.asarray(rpm, dtype=float))
++    return np.maximum(grams * 9.81 / 1000.0, 0.0)
++
++
+ # import BackendRviz from .backend_rviz
+ # from .backend import *
+ # from .backend.none import BackendNone
+@@ -128,6 +144,13 @@ class CrazyflieServer(Node):
+                 controller_name,
+                 self.backend.time)
+ 
++        # 학습 데이터 로그 토픽 on/off (기본 on). crazyflies.yaml 의 sim.log_topics 로 끈다.
++        self.log_topics = bool(self._ros_parameters['sim'].get('log_topics', True))
++        self.pose_pubs = {}
++        self.imu_pubs = {}
++        self.pwm_pubs = {}
++        self._last_log_t = -1.0
++
+         for name, _ in self.cfs.items():
+             pub = self.create_publisher(
+                     String,
+@@ -140,6 +163,15 @@ class CrazyflieServer(Node):
+             msg.data = self._ros_parameters['robot_description'].replace('$NAME', name)
+             pub.publish(msg)
+ 
++            if self.log_topics:
++                # 실기체와 동일: pose(PoseStamped), imu_raw/motor_pwm(LogDataGeneric)
++                self.pose_pubs[name] = self.create_publisher(
++                    PoseStamped, name + '/pose', 10)
++                self.imu_pubs[name] = self.create_publisher(
++                    LogDataGeneric, name + '/imu_raw', 10)
++                self.pwm_pubs[name] = self.create_publisher(
++                    LogDataGeneric, name + '/motor_pwm', 10)
++
+             self.create_service(
+                 Empty,
+                 name + '/emergency',
+@@ -237,6 +269,52 @@ class CrazyflieServer(Node):
+         for vis in self.visualizations:
+             vis.step(self.backend.time(), states_next, states_desired, actions)
+ 
++        # 학습 데이터 로그 토픽 (~100 Hz 로 throttle, 실기체 로깅율과 맞춤)
++        if self.log_topics:
++            t = self.backend.time()
++            if t - self._last_log_t >= 0.01:
++                self._last_log_t = t
++                self._publish_logs(states_next, actions)
++
++    def _publish_logs(self, states_next, actions):
++        """pose / imu_raw / motor_pwm 를 실기체와 동일 포맷으로 낸다.
++
++        imu_raw.values = [acc.x, acc.y, acc.z (g), gyro.x, gyro.y, gyro.z (deg/s)]
++        motor_pwm.values = [m1, m2, m3, m4]  (0..65535)
++        가속도계는 비추력(specific force)을 읽는다: drag-free 모델에서 바디프레임
++        [0, 0, 총추력/mass]. 호버 시 총추력=mg → acc_z≈1g. gyro = 바디 각속도.
++        """
++        stamp = self.get_clock().now().to_msg()
++        for state, action, (name, cf) in zip(states_next, actions, self.cfs.items()):
++            pose = PoseStamped()
++            pose.header.stamp = stamp
++            pose.header.frame_id = 'world'
++            pose.pose.position.x = float(state.pos[0])
++            pose.pose.position.y = float(state.pos[1])
++            pose.pose.position.z = float(state.pos[2])
++            pose.pose.orientation.w = float(state.quat[0])
++            pose.pose.orientation.x = float(state.quat[1])
++            pose.pose.orientation.y = float(state.quat[2])
++            pose.pose.orientation.z = float(state.quat[3])
++            self.pose_pubs[name].publish(pose)
++
++            thrust = float(np.sum(_rpm_to_force(action.rpm)))     # 총추력 [N]
++            acc_z_g = thrust / (_DEFAULT_MASS * 9.81)             # 비추력 [g]
++            gyro = np.asarray(state.omega, dtype=float) * _RAD2DEG
++            imu = LogDataGeneric()
++            imu.header.stamp = stamp
++            imu.header.frame_id = name
++            imu.values = [0.0, 0.0, float(acc_z_g),
++                          float(gyro[0]), float(gyro[1]), float(gyro[2])]
++            self.imu_pubs[name].publish(imu)
++
++            m = cf.motors_thrust_pwm.motors
++            pwm = LogDataGeneric()
++            pwm.header.stamp = stamp
++            pwm.header.frame_id = name
++            pwm.values = [float(m.m1), float(m.m2), float(m.m3), float(m.m4)]
++            self.pwm_pubs[name].publish(pwm)
++
+     def _param_to_dict(self, param_ros):
+         """Turn ROS 2 parameters from the node into a dict."""
+         tree = {}
+diff --git a/crazyflie_sim/crazyflie_sim/crazyflie_sil.py b/crazyflie_sim/crazyflie_sim/crazyflie_sil.py
+index acd939d..b3b2553 100644
+--- a/crazyflie_sim/crazyflie_sim/crazyflie_sil.py
++++ b/crazyflie_sim/crazyflie_sim/crazyflie_sil.py
+@@ -181,7 +181,13 @@ class CrazyflieSIL:
+             traj.t_begin = self.time_func()
+             traj.timescale = timescale
+             startfrom = self.cmdHl_pos
+-            firm.plan_start_trajectory(self.planner, traj, reverse, relative, startfrom)
++            # cffirmware 최신 시그니처: (p, traj, reversed, relative_position,
++            # relative_yaw, start_from, start_yaw). 구버전 sim 은 relative_yaw/
++            # start_yaw 를 안 넘겨 TypeError 가 났다. 위치와 같게 relative 를 쓰고
++            # 시작 yaw 는 현재 HL yaw 로 준다.
++            firm.plan_start_trajectory(
++                self.planner, traj, reverse, relative, relative,
++                startfrom, self.cmdHl_yaw)
+ 
+     # def notifySetpointsStop(self, remainValidMillisecs=100):
+     #     # No-op - the real Crazyflie prioritizes streaming setpoints over

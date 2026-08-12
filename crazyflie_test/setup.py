@@ -17,6 +17,7 @@ setup(
         (os.path.join('share', package_name, 'config'), glob('config/*')),
         (os.path.join('share', package_name, 'data'), glob('data/*')),
         (os.path.join('share', package_name, 'scripts'), glob('scripts/*')),
+        (os.path.join('share', package_name, 'patches'), glob('patches/*')),
         # TOGT 오프라인 도구(소스·크플 파라미터). colcon 빌드에는 넣지 않고 참고용으로만 설치.
         (os.path.join('share', package_name, 'togt_tools'),
             glob('togt_tools/*.cpp') + glob('togt_tools/*.txt')),
