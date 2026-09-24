@@ -197,18 +197,50 @@ def load_course(path=None):
 # --------------------------------------------------------------------------- #
 # 궤적 로딩 · 샘플링
 # --------------------------------------------------------------------------- #
-def default_trajectory_path():
+def _config_path(name):
+    """설치된 share → 소스 트리 순으로 config/<name> 을 찾는다."""
     try:
         from ament_index_python.packages import get_package_share_directory
-        path = os.path.join(get_package_share_directory('crazyflie_racing'),
-                            'config', 'gate_trajectory.csv')
+        path = os.path.join(get_package_share_directory('crazyflie_racing'), 'config', name)
         if os.path.exists(path):
             return path
     except Exception:
         pass
     return os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        'config', 'gate_trajectory.csv')
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config', name)
+
+
+def default_trajectory_path():
+    return _config_path('gate_trajectory.csv')
+
+
+# 연속 여러 바퀴(--loop): 진입(start 호버→이음매) · 순환 1랩(이음매→이음매) · 탈출(이음매→start 호버)
+LOOP_PARTS = ('entry', 'lap', 'exit')
+
+
+def default_loop_paths():
+    return {part: _config_path(f'gate_loop_{part}.csv') for part in LOOP_PARTS}
+
+
+def load_rows(path):
+    """궤적 CSV → (조각 수, 33) 배열."""
+    return np.atleast_2d(np.loadtxt(path, delimiter=',', skiprows=1, usecols=range(33)))
+
+
+def _eval_row(row, t):
+    """조각 하나의 t 에서 (pos, vel, acc) — 각 (3,)."""
+    out = []
+    for k in range(3):
+        c = np.polynomial.polynomial.Polynomial(row[1 + 8 * k:9 + 8 * k])
+        out.append([c(t), c.deriv(1)(t), c.deriv(2)(t)])
+    return np.array(out).T
+
+
+def seam_error(rows_a, rows_b):
+    """궤적 a 의 끝과 b 의 시작 사이 (pos, vel, acc) 최대 차이. 이어 붙일 수 있는지 검사용."""
+    end = _eval_row(rows_a[-1], rows_a[-1][0])
+    start = _eval_row(rows_b[0], 0.0)
+    return np.abs(end - start).max(axis=1)
 
 
 def load_trajectory(path=None):
@@ -228,9 +260,11 @@ def sample_trajectory(path=None, n=4000):
 
     CSV = duration, x^0..x^7, y^0..y^7, z^0..z^7, yaw^0..yaw^7 (오름차순, 조각별 절대초).
     """
-    rows = np.atleast_2d(
-        np.loadtxt(path or default_trajectory_path(),
-                   delimiter=',', skiprows=1, usecols=range(33)))
+    return sample_rows(load_rows(path or default_trajectory_path()), n)
+
+
+def sample_rows(rows, n=4000):
+    """조각 배열(load_rows) → (N,3) 점열. 여러 궤적을 이어 붙인 배열도 된다."""
     per = max(2, int(n / len(rows)))
     pts = []
     for r in rows:

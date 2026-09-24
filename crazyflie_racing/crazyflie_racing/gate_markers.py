@@ -53,6 +53,7 @@ class GateMarkers(Node):
         p = self.declare_parameter
         p('gates_yaml', '')         # 비우면 패키지 config/gates.yaml
         p('trajectory', '')         # 비우면 패키지 config/gate_trajectory.csv
+        p('loop', False)            # True 면 연속 비행 궤적(gate_loop_entry+lap+exit)을 그린다
         p('frame_id', 'world')
         p('start', [])              # 이륙/착륙 xy. 비우면 gates.yaml 의 start 를 쓴다
         p('height', 0.0)            # 이륙 고도. 0 이면 gates.yaml 의 start.takeoff_z
@@ -123,10 +124,16 @@ class GateMarkers(Node):
         """gate_flight 가 실제로 날 궤적 CSV 를 점열로 로드. 없으면 None(게이트만 그림)."""
         path = self.get_parameter('trajectory').value or None
         try:
-            samples = gc.sample_trajectory(path)
-            self.get_logger().info(
-                f'궤적 로드: {path or gc.default_trajectory_path()} '
-                f'({len(samples)} 점)')
+            if self.get_parameter('loop').value and path is None:
+                # 연속 비행(gate_flight --loop): 진입+1랩+탈출. 랩은 같은 경로를 반복한다
+                paths = gc.default_loop_paths()
+                samples = gc.sample_rows(
+                    np.vstack([gc.load_rows(paths[k]) for k in gc.LOOP_PARTS]))
+                path = ' + '.join(paths[k] for k in gc.LOOP_PARTS)
+            else:
+                path = path or gc.default_trajectory_path()
+                samples = gc.sample_trajectory(path)
+            self.get_logger().info(f'궤적 로드: {path} ({len(samples)} 점)')
             hits = gc.check_gate_clearance(samples, self.course)
             for h in hits:
                 self.get_logger().warning(h)

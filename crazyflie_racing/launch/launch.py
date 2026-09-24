@@ -40,6 +40,12 @@ def generate_launch_description():
         description='마커로 그릴 궤적 CSV. 비우면 패키지 config/gate_trajectory.csv',
     )
 
+    loop_arg = DeclareLaunchArgument(
+        'loop',
+        default_value='false',
+        description='true 면 연속 비행 궤적(gate_loop_*.csv)을 그린다 (gate_flight --loop 용)',
+    )
+
     mode = LaunchConfiguration('mode')
     backend = LaunchConfiguration('backend')
 
@@ -76,8 +82,11 @@ def generate_launch_description():
         executable='gate_markers',
         name='gate_markers',
         output='screen',
-        parameters=[{'trajectory': ParameterValue(
-            LaunchConfiguration('trajectory'), value_type=str)}],
+        parameters=[{
+            'trajectory': ParameterValue(
+                LaunchConfiguration('trajectory'), value_type=str),
+            'loop': ParameterValue(LaunchConfiguration('loop'), value_type=bool),
+        }],
         condition=IfCondition(LaunchConfiguration('markers')),
     )
 
@@ -96,6 +105,7 @@ def generate_launch_description():
         markers_arg,
         rviz_arg,
         trajectory_arg,
+        loop_arg,
         crazyflie_launch,
         gate_markers,
         rviz,

@@ -19,7 +19,6 @@
 """
 import argparse
 import os
-import signal
 import subprocess
 import time
 
@@ -75,23 +74,17 @@ def record_one(shape, speed, laps, yaw, cf, out_root, extra, to_csv, gt_topic):
         topics.append(gt_topic)
     print(f'\n=== {shape} speed={speed} yaw={yaw} laps={laps} → {out_dir} ===')
 
-    rec = subprocess.Popen(['ros2', 'bag', 'record', '-o', bag_dir] + topics,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           preexec_fn=os.setsid)
+    from crazyflie_test.recorder import Recorder
+    rec = Recorder(bag_dir, topics)
     time.sleep(2.0)      # 레코더가 구독을 붙일 시간
 
     fly = ['ros2', 'run', 'crazyflie_traj', shape,
            '--laps', str(laps), '--speed', str(speed), '--yaw', yaw] + list(extra)
     print('  비행:', ' '.join(fly))
-    subprocess.run(fly)  # 블로킹 — 착륙까지 대기
-
-    # 레코더 종료 (프로세스 그룹에 SIGINT → 깔끔히 flush)
-    os.killpg(os.getpgid(rec.pid), signal.SIGINT)
     try:
-        rec.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        os.killpg(os.getpgid(rec.pid), signal.SIGKILL)
-    print(f'  기록 완료 → {bag_dir}')
+        subprocess.run(fly)  # 블로킹 — 착륙까지 대기
+    finally:                 # Ctrl+C 로 끊겨도 bag 은 닫는다
+        rec.stop()
 
     if to_csv:
         b2c = _bag_to_csv_path()

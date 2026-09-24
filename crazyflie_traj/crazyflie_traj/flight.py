@@ -15,6 +15,8 @@
 """
 import argparse
 import math
+import os
+import time
 
 import numpy as np
 
@@ -137,6 +139,12 @@ def parse_args(shape_name):
     p.add_argument('--no-arm', action='store_true', help='arm 요청 안 함')
     p.add_argument('--no-rviz', action='store_true',
                    help='rviz2 를 띄우지 않음 (계획/실궤적 토픽은 그대로 발행)')
+    p.add_argument('--record', action='store_true',
+                   help='이륙 직전~착륙 rosbag 기록 '
+                        '(pose, imu_raw, motor_pwm, cmd_full_state, status, /poses)')
+    p.add_argument('--record-dir', default='~/flight_logs/traj_data',
+                   help='기록 루트. <shape>/<yawType>/<shape>_maxSpeed<V>/bag_<시각>/ 로 저장 '
+                        '(collect_traj_data 와 같은 구조)')
     p.add_argument('--dry-run', action='store_true', help='계획만 출력, 비행 안 함')
     args, _ = p.parse_known_args()
     return args
@@ -219,46 +227,63 @@ def run(shape_name, **shape_kwargs):
     if not args.no_rviz:
         open_rviz()
 
-    cf.takeoff(targetHeight=float(p0[2]), duration=3.0)
-    th.sleep(3.5)
-    cf.goTo(p0, yaw=traj.eval(0.0)[3], duration=3.0)
-    th.sleep(3.5)
+    rec = None
+    if args.record:
+        from crazyflie_test.recorder import Recorder
+        yaw_type = 'yawForward' if args.yaw == 'forward' else 'yawConstant'
+        combo = f"{shape_name}_maxSpeed{f'{args.speed:.1f}'.replace('.', 'p')}"
+        bag_dir = os.path.join(os.path.expanduser(args.record_dir), shape_name, yaw_type,
+                               combo, 'bag_' + time.strftime('%Y%m%d_%H%M%S'))
+        # cmd_full_state = 레퍼런스 입력, /poses = mocap GT (모캡 모드에서만 존재)
+        rec = Recorder(bag_dir, ['/poses'] + [
+            f'{cf.prefix}/{t}'
+            for t in ('pose', 'imu_raw', 'motor_pwm', 'cmd_full_state', 'status')])
+        th.sleep(2.0)                              # 레코더가 구독을 붙일 시간
 
-    # 랩·배터리 로그용 status 구독(1Hz). sim 엔 status 가 없을 수 있음 → 배터리 N/A.
-    from crazyflie_interfaces.msg import Status
-    tele = {}
-    swarm.allcfs.create_subscription(
-        Status, f'{cf.prefix}/status',
-        lambda m: tele.__setitem__('v', m.battery_voltage), 1)
+    try:
+        cf.takeoff(targetHeight=float(p0[2]), duration=3.0)
+        th.sleep(3.5)
+        cf.goTo(p0, yaw=traj.eval(0.0)[3], duration=3.0)
+        th.sleep(3.5)
 
-    shown_lap = 0
-    start = th.time()
-    while not th.isShutdown():
-        t = th.time() - start
-        if t > traj.duration:
-            break
-        # s(t) 는 랩 단위(1랩=1) → 현재 랩(1-index). 바뀔 때마다 배터리와 함께 로그.
-        lap = min(int(traj.sched.eval(t)[0]) + 1, args.laps)
-        if lap != shown_lap:
-            shown_lap = lap
-            v = tele.get('v')
-            batt = f'{v:.2f} V' if v is not None else 'N/A'
-            print(f'  [{shape_name} {args.speed}m/s] 랩 {lap}/{args.laps}  배터리 {batt}',
-                  flush=True)
-        pos, vel, acc, yaw, yawrate = traj.eval(t)
-        cf.cmdFullState(pos + off, vel, acc, yaw, np.array([0.0, 0.0, yawrate]))
-        th.sleepForRate(args.rate)
+        # 랩·배터리 로그용 status 구독(1Hz). sim 엔 status 가 없을 수 있음 → 배터리 N/A.
+        from crazyflie_interfaces.msg import Status
+        tele = {}
+        swarm.allcfs.create_subscription(
+            Status, f'{cf.prefix}/status',
+            lambda m: tele.__setitem__('v', m.battery_voltage), 1)
 
-    # 궤적은 s=laps(정수)=시작점에서 속도 0 으로 끝난다. 마지막 setpoint 를 잠깐
-    # 더 물려 흔들림을 재운 뒤 착륙.
-    # ⚠️ cmdFullState(low-level) 뒤에는 goTo 가 통하지 않는다(sim/펌웨어 공통). land 는
-    #    현재 위치에서 바로 되므로 goTo 없이 notifySetpointsStop → land 로 마친다.
-    end_pos, _, _, end_yaw, _ = traj.eval(traj.duration)
-    for _ in range(int(0.5 * args.rate)):
-        cf.cmdFullState(end_pos + off, np.zeros(3), np.zeros(3), end_yaw, np.zeros(3))
-        th.sleepForRate(args.rate)
-    cf.notifySetpointsStop()
-    th.sleep(0.3)
-    cf.land(targetHeight=0.04, duration=3.0)
-    th.sleep(3.5)
-    viz.publish_flown()                            # 착륙까지의 최종 자취
+        shown_lap = 0
+        start = th.time()
+        while not th.isShutdown():
+            t = th.time() - start
+            if t > traj.duration:
+                break
+            # s(t) 는 랩 단위(1랩=1) → 현재 랩(1-index). 바뀔 때마다 배터리와 함께 로그.
+            lap = min(int(traj.sched.eval(t)[0]) + 1, args.laps)
+            if lap != shown_lap:
+                shown_lap = lap
+                v = tele.get('v')
+                batt = f'{v:.2f} V' if v is not None else 'N/A'
+                print(f'  [{shape_name} {args.speed}m/s] 랩 {lap}/{args.laps}  배터리 {batt}',
+                      flush=True)
+            pos, vel, acc, yaw, yawrate = traj.eval(t)
+            cf.cmdFullState(pos + off, vel, acc, yaw, np.array([0.0, 0.0, yawrate]))
+            th.sleepForRate(args.rate)
+
+        # 궤적은 s=laps(정수)=시작점에서 속도 0 으로 끝난다. 마지막 setpoint 를 잠깐
+        # 더 물려 흔들림을 재운 뒤 착륙.
+        # ⚠️ cmdFullState(low-level) 뒤에는 goTo 가 통하지 않는다(sim/펌웨어 공통). land 는
+        #    현재 위치에서 바로 되므로 goTo 없이 notifySetpointsStop → land 로 마친다.
+        end_pos, _, _, end_yaw, _ = traj.eval(traj.duration)
+        for _ in range(int(0.5 * args.rate)):
+            cf.cmdFullState(end_pos + off, np.zeros(3), np.zeros(3), end_yaw, np.zeros(3))
+            th.sleepForRate(args.rate)
+        cf.notifySetpointsStop()
+        th.sleep(0.3)
+        cf.land(targetHeight=0.04, duration=3.0)
+        th.sleep(3.5)
+        viz.publish_flown()                            # 착륙까지의 최종 자취
+    finally:                                       # Ctrl+C 로 끊겨도 bag 은 닫는다
+        if rec is not None:
+            rec.stop()

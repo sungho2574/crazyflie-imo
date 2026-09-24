@@ -63,7 +63,8 @@ ros2_ws/src/crazyflie-imo
 │   │   └── gate_markers.py         #   rviz 게이트·계획·실궤적 마커
 │   ├── config/
 │   │   ├── gates.yaml              # 게이트 배치·방·이착륙 지점
-│   │   ├── gate_trajectory.csv     # TOGT 결과 (커밋돼 있음)
+│   │   ├── gate_trajectory.csv     # TOGT 결과 1바퀴 (커밋돼 있음)
+│   │   ├── gate_loop_{entry,lap,exit}.csv  # 연속 비행용: 진입 · 순환 1랩 · 탈출
 │   │   ├── crazyflies_gate.yaml    # initial_position = start 로 맞춘 기체 설정
 │   │   └── gate_course.rviz
 │   ├── launch/launch.py            # 서버 + gate_markers + rviz. mode:=gate(기본) | mocap
@@ -146,6 +147,7 @@ ros2 launch crazyflie_racing launch.py mode:=mocap    # mocap 실기체
 | `markers`    | `true` \| `false`          | `true`  | `gate_markers` 노드 같이 실행                |
 | `rviz`       | `true` \| `false`          | `true`  | `gate_course.rviz` 로 rviz2 같이 실행        |
 | `trajectory` | CSV 경로                   | (빈 값) | 마커로 그릴 궤적. 비우면 `config/gate_trajectory.csv` |
+| `loop`       | `true` \| `false`          | `false` | 연속 비행 궤적(`gate_loop_*.csv`)을 그림 (`gate_flight --loop` 용) |
 
 서버 + 게이트·궤적 마커 + rviz 가 한 번에 뜬다. 비행(`gate_flight`)만 별도 터미널에서 실행한다.
 
@@ -228,8 +230,40 @@ ros2 run crazyflie_traj figure8 --dry-run          # 계획만 확인
 | `--min-battery` | 3.7     | 이 전압 미만이면 이륙 안 함 [V]                      |
 | `--no-arm`      | -       | arm 요청 안 함                                       |
 | `--no-rviz`     | -       | rviz2 자동 실행 안 함 (토픽은 그대로 발행)           |
+| `--record`      | -       | 이륙 직전~착륙 rosbag 자동 기록 (아래 참고)          |
+| `--record-dir`  | `~/flight_logs/traj_data` | 기록 루트 폴더                     |
 | `--dry-run`     | -       | 계획만 출력(실현 속도/가속도/bbox), 비행 안 함       |
 
+- **연속 여러 바퀴(`--loop N`)** — 바퀴 사이에 멈추지 않는다. 궤적 3개를 이어 붙인다:
+
+| 파일                       | 구간                                          |
+| -------------------------- | --------------------------------------------- |
+| `gate_loop_entry.csv`      | start 호버 → 이음매 (정지에서 출발)           |
+| `gate_loop_lap.csv`        | 이음매 → G1..G7 → 이음매 (순환 1랩)           |
+| `gate_loop_exit.csv`       | 이음매 → start 호버 (정지로 끝남)             |
+
+이음매((1.5, −1.5, 1.25), +y 로 약 0.78 m/s)에서 세 궤적의 위치·속도·가속도가 같도록
+계획돼 있어 `진입 → 랩 × N → 탈출` 로 끊김 없이 이어진다. 세 궤적을 펌웨어 메모리에
+함께 올리고(조각 1+16+4=21 ≤ 31), 각 궤적이 끝나는 시각에 호스트가 다음 궤적을
+시작한다(절대좌표, `relative=False`). 펌웨어가 궤적을 줄 세우지 못해 전환 명령은
+무선으로 가므로, 지연(수~수십 ms)만큼 이음매에서 수 cm 어긋날 수 있다.
+
+```bash
+ros2 launch crazyflie_racing launch.py backend:=sim loop:=true   # rviz 에 연속 비행 궤적
+ros2 run crazyflie_racing gate_flight --loop 10 --dry-run         # 이음매·총 시간 확인
+ros2 run crazyflie_racing gate_flight --loop 10
+```
+
+- `--dry-run` 이 이음매 3곳(진입→랩, 랩→랩, 랩→탈출)의 pos/vel/acc 차이를 검사한다.
+  궤적 파일을 새로 만들면 여기서 `OK` 인지 먼저 확인할 것.
+- `--timescale` 은 세 궤적에 똑같이 적용되므로 이음매 연속성이 유지된다.
+- 진입·탈출이 랩과 같은 통로를 쓰므로 `경로가 자기 자신과 … 붙는다` 경고는 정상이다.
+- `--laps`(바퀴마다 정지) · `--trajectory` 와는 같이 쓸 수 없다.
+
+**기록(`--record`)**: `pose · imu_raw · motor_pwm · cmd_full_state · status · /poses`(모캡 GT)
+  를 `<record-dir>/<shape>/<yawType>/<shape>_maxSpeed<V>/bag_<날짜_시각>/` 에 sqlite3(`.db3`)로
+  저장한다. `collect_traj_data` 와 같은 구조라 `analysis/visualize_flights.py` 가 그대로 읽는다.
+  여러 도형·속도를 순회하며 모으려면 `collect_traj_data` 를 쓴다.
 - **속도 격리**: 같은 도형을 그대로 두고 `period = max|dp/ds| / speed` 만 바꿔 목표 속도를
   맞춘다(속도만 독립 변수로 실험 가능).
 - 시작·종료만 램프시켜 t=0 에서 속도·가속도가 0이라 호버에서 이어붙여도 충격이 없다.
@@ -282,7 +316,8 @@ ros2 run crazyflie_traj collect_traj_data --shapes clover circle star \
 - 비행 중 **각 랩마다** `[<도형> <속도>m/s] 랩 k/N  배터리 x.xx V` 가 찍힌다
   (실기체 `status` 필요, sim 은 배터리 `N/A`).
 - 출력 폴더(Blackbird 미러): `traj_data/<shape>/<yawType>/<shape>_maxSpeed<V>/{bag, csv}`
-  (예 `clover/yawForward/clover_maxSpeed2p0/`). CSV 는 약 100 Hz, 토픽별 timestamp 가
+  (예 `clover/yawForward/clover_maxSpeed2p0/`). bag 은 sqlite3(`.db3`)로 저장한다(Jazzy 기본
+  mcap 대신 — `analysis/` 스크립트가 `.db3` 를 읽는다). CSV 는 약 100 Hz, 토픽별 timestamp 가
   달라 오프라인 리샘플·정렬이 필요하다.
 - sim 에서 imu_raw/motor_pwm/pose 를 받으려면 [sim 패치](#sim-imupwm-확장-서브모듈-패치)가 필요하다.
 
@@ -390,6 +425,9 @@ ros2 run crazyflie_racing gate_flight
 | `--trajectory`  | -     | 궤적 CSV (기본 `config/gate_trajectory.csv`)    |
 | `--laps`        | 1     | 같은 궤적을 반복할 바퀴 수 (아래 참고)          |
 | `--lap-pause`   | 1.0   | 바퀴 사이 start 상공 재정렬 시간 [s]            |
+| `--loop`        | 0     | 멈추지 않고 연속으로 도는 바퀴 수 (아래 참고)   |
+| `--record`      | -     | 이륙 직전~착륙 rosbag 자동 기록 (아래 참고)     |
+| `--record-dir`  | `~/flight_logs` | 기록 루트 폴더                        |
 | `--gates`       | -     | gates.yaml (기본 패키지 config)                 |
 | `--height`      | yaml  | 이륙 고도 [m]. 기본은 `start.takeoff_z`         |
 | `--min-battery` | 3.85  | 이 전압 미만이면 이륙 안 함 [V]                  |
@@ -404,6 +442,15 @@ ros2 run crazyflie_racing gate_flight
 
 ```bash
 ros2 run crazyflie_racing gate_flight --laps 3 --timescale 2
+```
+
+**기록(`--record`)** — 이륙 2초 전에 `ros2 bag record` 를 시작해 착륙 후 닫는다(Ctrl+C 로
+중단해도 닫힌다). `~/flight_logs/gate_<날짜_시각>/` 에 sqlite3(`.db3`)로 저장하므로
+`analysis/gate_3d.py` 가 바로 읽는다. 토픽: `/poses`(모캡 GT, 모캡 모드만) ·
+`/<cf>/pose` · `imu_raw` · `motor_pwm` · `status`.
+
+```bash
+ros2 run crazyflie_racing gate_flight --mocap --record --laps 3
 ```
 
 ### 위치 출처: 모캡 vs 온보드 추정 (중요)
