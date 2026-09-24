@@ -388,12 +388,23 @@ ros2 run crazyflie_racing gate_flight
 | --------------- | ----- | ----------------------------------------------- |
 | `--timescale`   | 1.0   | 궤적 시간 배율. >1 이면 느리게 (첫 비행 권장)    |
 | `--trajectory`  | -     | 궤적 CSV (기본 `config/gate_trajectory.csv`)    |
+| `--laps`        | 1     | 같은 궤적을 반복할 바퀴 수 (아래 참고)          |
+| `--lap-pause`   | 1.0   | 바퀴 사이 start 상공 재정렬 시간 [s]            |
 | `--gates`       | -     | gates.yaml (기본 패키지 config)                 |
 | `--height`      | yaml  | 이륙 고도 [m]. 기본은 `start.takeoff_z`         |
 | `--min-battery` | 3.85  | 이 전압 미만이면 이륙 안 함 [V]                  |
 | `--mocap`       | -     | 모캡으로 절대 위치를 받는 경우                   |
 | `--force-start` | -     | initial_position 이 start 와 달라도 강행        |
 | `--dry-run`     | -     | 계획만 출력하고 비행하지 않음                    |
+
+**여러 바퀴(`--laps N`)** — 업로드한 1바퀴 궤적을 N번 다시 실행한다. 궤적이 start 상공에서
+속도 0 으로 시작·끝나므로, 바퀴 사이에 start 상공에서 `--lap-pause` 동안 **잠깐 멈춰 위치를
+다시 맞춘 뒤** 다음 바퀴를 시작한다(오차가 바퀴마다 누적되지 않게). 멈추지 않는 연속 주행은
+궤적을 여러 바퀴로 다시 계획해야 해서 지원하지 않는다.
+
+```bash
+ros2 run crazyflie_racing gate_flight --laps 3 --timescale 2
+```
 
 ### 위치 출처: 모캡 vs 온보드 추정 (중요)
 

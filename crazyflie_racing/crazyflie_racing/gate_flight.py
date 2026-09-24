@@ -3,6 +3,7 @@
     ros2 run crazyflie_racing gate_flight --dry-run      # 궤적 요약·검사만 (기체 불필요)
     ros2 run crazyflie_racing gate_flight                # 실행 (timescale 1.0)
     ros2 run crazyflie_racing gate_flight --timescale 2  # 절반 속도 (첫 비행 권장)
+    ros2 run crazyflie_racing gate_flight --laps 3       # 같은 궤적을 3바퀴 반복
 
 경로 계획은 이 스크립트가 하지 않는다. TOGT-Planner 로 **오프라인**에서 시간최적
 궤적을 만들어 다항식 CSV(`config/gate_trajectory.csv`)로 저장해 두고
@@ -43,6 +44,10 @@ def parse_args():
                    help='gates.yaml (start·검사용, 기본: 패키지 config)')
     p.add_argument('--timescale', type=float, default=1.0,
                    help='궤적 시간 배율. >1 이면 느리게 (첫 비행 권장). 예: 2 = 절반 속도')
+    p.add_argument('--laps', type=int, default=1,
+                   help='같은 궤적을 반복할 바퀴 수. 바퀴 사이에 start 상공에서 잠깐 멈춘다')
+    p.add_argument('--lap-pause', type=float, default=1.0,
+                   help='바퀴 사이 start 상공 재정렬 시간 [s]')
     p.add_argument('--height', type=float, default=None,
                    help='이륙 고도 [m]. 기본은 gates.yaml 의 start.takeoff_z')
     p.add_argument('--takeoff-duration', type=float, default=3.0, help='이륙 시간 [s]')
@@ -112,8 +117,13 @@ def load_and_report(args):
     traj = None
     try:
         traj = gc.load_trajectory(csv)
+        lap_t = traj.duration * args.timescale
         print(f'  궤적 시간 {traj.duration:.1f} s '
-              f'(timescale {args.timescale:.2f} → {traj.duration * args.timescale:.1f} s)')
+              f'(timescale {args.timescale:.2f} → {lap_t:.1f} s)')
+        if args.laps > 1:
+            total = args.laps * lap_t + (args.laps - 1) * (args.lap_pause + 0.5)
+            print(f'  {args.laps}바퀴 반복 → 약 {total:.1f} s '
+                  f'(바퀴 사이 start 상공 재정렬 {args.lap_pause:.1f} s)')
     except Exception as exc:      # crazyflie_py 없는 환경(순수 dry-run)
         print(f'  · Trajectory 로드는 건너뜀({exc}). CSV 검사만 수행.')
     return traj, course, hover
@@ -227,8 +237,16 @@ def main():
     th.sleep(3.5)
 
     cf.uploadTrajectory(0, 0, traj)
-    cf.startTrajectory(0, timescale=args.timescale, relative=True)
-    th.sleep(traj.duration * args.timescale + 1.0)
+    laps = max(1, args.laps)
+    for lap in range(1, laps + 1):
+        if lap > 1:
+            # 궤적은 start 상공에서 속도 0 으로 끝난다. relative=True 는 현재 위치 기준이라
+            # 끝 오차가 다음 바퀴로 누적되므로, 매 바퀴 start 상공에 다시 정렬한다.
+            cf.goTo(start_pt, yaw=0.0, duration=args.lap_pause)
+            th.sleep(args.lap_pause + 0.5)
+        print(f'  랩 {lap}/{laps}', flush=True)
+        cf.startTrajectory(0, timescale=args.timescale, relative=True)
+        th.sleep(traj.duration * args.timescale + (1.0 if lap == laps else 0.5))
 
     print('  착륙')
     cf.land(targetHeight=0.04, duration=args.land_duration)
