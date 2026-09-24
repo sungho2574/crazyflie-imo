@@ -35,15 +35,13 @@ ros2_ws/src/crazyflie-imo
 │   ├── crazyflie_test/
 │   │   ├── hello_world.py          #   이륙 → 호버 → 착륙
 │   │   ├── goto_square.py          #   사각형 goTo
-│   │   ├── multi_square.py         #   편대 3기체 사각형
-│   │   └── figure8.py              #   리사주 8자 cmdFullState (레거시, 실행 명령 미등록)
+│   │   └── multi_square.py         #   편대 3기체 사각형
 │   ├── config/
 │   │   ├── crazyflies_opticalflow.yaml        # Flow deck 단일 (기본)
 │   │   ├── crazyflies_opticalflow_multi.yaml  # Flow deck 편대
 │   │   ├── crazyflies_mocap.yaml              # mocap 기체 설정
 │   │   └── motion_capture.yaml                # QTM 연결 설정
 │   ├── launch/launch.py            # mode·backend 로 설정 선택 → crazyflie 서버
-│   ├── data/figure8.csv            # crazyswarm 8자 다항식 예제
 │   ├── scripts/bag_to_csv.py       # rosbag → 토픽별 CSV
 │   └── patches/                    # crazyswarm2 sim 확장 패치 (imu/pwm/pose 발행)
 │

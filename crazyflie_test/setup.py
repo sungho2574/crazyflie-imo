@@ -15,7 +15,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*')),
         (os.path.join('share', package_name, 'config'), glob('config/*')),
-        (os.path.join('share', package_name, 'data'), glob('data/*')),
         (os.path.join('share', package_name, 'scripts'), glob('scripts/*')),
         (os.path.join('share', package_name, 'patches'), glob('patches/*')),
     ],
