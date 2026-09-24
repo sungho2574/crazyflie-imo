@@ -3,8 +3,8 @@
 브리프 스키마로 **한 랩(period)** 의 주기 레퍼런스를 낸다(램프 없음 — 순수 루프).
 비행(`flight.py`)은 여기에 시작/종료 램프를 더한 것이라 별도다.
 
-    python3 -m crazyflie_test.traj.generator --shape clover --speed 2.0 --yaw forward
-    python3 -m crazyflie_test.traj.generator --all --speed 1.0 --plot
+    python3 -m crazyflie_traj.generator --shape clover --speed 2.0 --yaw forward
+    python3 -m crazyflie_traj.generator --all --speed 1.0 --plot
 
 CSV 스키마: t,x,y,z,vx,vy,vz,ax,ay,az,yaw,yawrate
 """

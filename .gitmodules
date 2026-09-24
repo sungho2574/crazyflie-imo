@@ -5,5 +5,5 @@
 	path = motion_capture_tracking
 	url = https://github.com/IMRCLab/motion_capture_tracking.git
 [submodule "crazyflie_test/togt_tools/TOGT-Planner"]
-	path = crazyflie_test/togt_tools/TOGT-Planner
+	path = crazyflie_racing/togt_tools/TOGT-Planner
 	url = https://github.com/FSC-Lab/TOGT-Planner.git

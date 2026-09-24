@@ -1,13 +1,13 @@
 """주기 궤적을 rviz2 에 그려주는 노드.
 
-    ros2 run crazyflie_test traj_markers --ros-args -p shape:=clover
-    rviz2 -d $(ros2 pkg prefix crazyflie_test)/share/crazyflie_test/config/traj.rviz
+    ros2 run crazyflie_traj traj_markers --ros-args -p shape:=clover
+    rviz2 -d $(ros2 pkg prefix crazyflie_traj)/share/crazyflie_traj/config/traj.rviz
 
 퍼블리시:
     /traj/path    nav_msgs/Path   계획된 도형 한 랩 (하늘색)
     /traj/flown   nav_msgs/Path   드론 TF(world→기체) 누적 실제 자취 (노랑)
 
-도형은 flight 와 같은 `traj.shapes` 로 그리므로, 파라미터(shape/scale/height/center)를
+도형은 flight 와 같은 `shapes` 로 그리므로, 파라미터(shape/scale/height/center)를
 비행과 맞추면 rviz 의 경로가 실제로 나는 경로다. 도형은 이륙 지점(xy)에 얹히므로
 center 를 기체의 initial_position xy 로 맞춘다(기본 0,0).
 """

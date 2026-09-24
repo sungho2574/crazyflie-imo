@@ -1,7 +1,7 @@
 """게이트 코스를 rviz2 에 그려주는 노드.
 
-    ros2 run crazyflie_test gate_markers
-    rviz2 -d $(ros2 pkg prefix crazyflie_test)/share/crazyflie_test/config/gate_course.rviz
+    ros2 run crazyflie_racing gate_markers
+    rviz2 -d $(ros2 pkg prefix crazyflie_racing)/share/crazyflie_racing/config/gate_course.rviz
 
 퍼블리시하는 토픽
     /gate_course/markers   visualization_msgs/MarkerArray

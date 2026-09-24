@@ -157,7 +157,7 @@ def default_gates_path():
     try:
         from ament_index_python.packages import get_package_share_directory
         path = os.path.join(
-            get_package_share_directory('crazyflie_test'), 'config', 'gates.yaml')
+            get_package_share_directory('crazyflie_racing'), 'config', 'gates.yaml')
         if os.path.exists(path):
             return path
     except Exception:       # ROS 환경이 아니어도 (오프라인 계획 등) 동작하게
@@ -200,7 +200,7 @@ def load_course(path=None):
 def default_trajectory_path():
     try:
         from ament_index_python.packages import get_package_share_directory
-        path = os.path.join(get_package_share_directory('crazyflie_test'),
+        path = os.path.join(get_package_share_directory('crazyflie_racing'),
                             'config', 'gate_trajectory.csv')
         if os.path.exists(path):
             return path

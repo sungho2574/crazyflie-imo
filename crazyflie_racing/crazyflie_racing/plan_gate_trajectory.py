@@ -13,8 +13,8 @@ TOGT 소스는 별도로 clone 해 둔다(서브모듈로 넣지 않음):
     git clone https://github.com/FSC-Lab/TOGT-Planner
 
 사용:
-    python3 -m crazyflie_test.plan_gate_trajectory --togt-dir ~/TOGT-Planner
-    # 빌드 후에는: ros2 run crazyflie_test plan_gate_trajectory --togt-dir ~/TOGT-Planner
+    python3 -m crazyflie_racing.plan_gate_trajectory --togt-dir ~/TOGT-Planner
+    # 빌드 후에는: ros2 run crazyflie_racing plan_gate_trajectory --togt-dir ~/TOGT-Planner
     # 또는 환경변수 TOGT_DIR 로 지정
 
 게이트를 바꿨을 때만 다시 돌리면 된다. 결과 CSV 는 패키지에 커밋돼 있어,
@@ -31,9 +31,9 @@ from . import gate_course as gc
 
 
 def pkg_dir():
-    """소스 트리 기준 crazyflie_test 패키지 루트 (togt_tools/, config/ 가 있는 곳).
+    """소스 트리 기준 crazyflie_racing 패키지 루트 (togt_tools/, config/ 가 있는 곳).
 
-    이 파일은 crazyflie_test/crazyflie_test/ 안에 있으므로 두 번 올라간다.
+    이 파일은 crazyflie_racing/crazyflie_racing/ 안에 있으므로 두 번 올라간다.
     symlink-install 이면 __file__ 이 소스를 가리켜 소스 트리 루트가 나온다.
     """
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

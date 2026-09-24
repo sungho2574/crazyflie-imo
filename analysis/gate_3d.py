@@ -27,7 +27,7 @@ from rclpy.serialization import deserialize_message
 from motion_capture_tracking_interfaces.msg import NamedPoseArray
 from geometry_msgs.msg import PoseStamped
 
-CFG = os.path.expanduser('~/Workspace/cf_ws/src/crazyflie-imo/crazyflie_test/config')
+CFG = os.path.expanduser('~/Workspace/cf_ws/src/crazyflie-imo/crazyflie_racing/config')
 LOGS = os.path.expanduser('~/flight_logs')
 OUT = os.path.join(LOGS, 'gate_3d')
 GATES_YAML = os.path.join(CFG, 'gates.yaml')

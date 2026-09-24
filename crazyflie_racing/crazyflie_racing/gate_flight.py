@@ -1,8 +1,8 @@
 """게이트 코스 비행 — 미리 계획한 궤적을 **크플 펌웨어 온보드 추종기**로 실행한다.
 
-    ros2 run crazyflie_test gate_flight --dry-run      # 궤적 요약·검사만 (기체 불필요)
-    ros2 run crazyflie_test gate_flight                # 실행 (timescale 1.0)
-    ros2 run crazyflie_test gate_flight --timescale 2  # 절반 속도 (첫 비행 권장)
+    ros2 run crazyflie_racing gate_flight --dry-run      # 궤적 요약·검사만 (기체 불필요)
+    ros2 run crazyflie_racing gate_flight                # 실행 (timescale 1.0)
+    ros2 run crazyflie_racing gate_flight --timescale 2  # 절반 속도 (첫 비행 권장)
 
 경로 계획은 이 스크립트가 하지 않는다. TOGT-Planner 로 **오프라인**에서 시간최적
 궤적을 만들어 다항식 CSV(`config/gate_trajectory.csv`)로 저장해 두고

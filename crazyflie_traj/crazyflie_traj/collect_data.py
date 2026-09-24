@@ -3,7 +3,7 @@
 각 (도형 × 속도) 조합마다:
   1. rosbag 으로 pose·imu_raw·motor_pwm·cmd_full_state(레퍼런스 입력)
      + status(배터리) + ground-truth 위치(mocap /poses) 기록 시작
-  2. 해당 도형을 지정 랩 수만큼 연속 비행 (`ros2 run crazyflie_test <shape>`)
+  2. 해당 도형을 지정 랩 수만큼 연속 비행 (`ros2 run crazyflie_traj <shape>`)
   3. 기록 종료 → (옵션) bag_to_csv.py 로 토픽별 CSV 변환
 
 출력 폴더 (Blackbird 네이밍 미러):
@@ -12,7 +12,7 @@
 
 전제: **crazyflie 서버가 이미 떠 있어야 한다** (sim 이면 IMU/PWM 확장 반영본 필요).
     ros2 launch crazyflie launch.py backend:=sim ... crazyflies_yaml_file:=<...>
-    ros2 run crazyflie_test collect_traj_data --shapes clover circle --speeds 1.0 2.0
+    ros2 run crazyflie_traj collect_traj_data --shapes clover circle --speeds 1.0 2.0
 
 ⚠️ sim 은 확장으로 imu_raw/motor_pwm/pose 를 실기체와 같은 포맷으로 낸다. 단 sim pose 는
    ground truth, imu 는 drag-free·무노이즈(실기체와 특성 차이 있음 — README 참고).
@@ -23,7 +23,7 @@ import signal
 import subprocess
 import time
 
-from .traj import shapes as sh
+from . import shapes as sh
 
 
 def _vtag(v):
@@ -41,14 +41,16 @@ def _laps_for(shape, speed, seconds):
 
 
 def _bag_to_csv_path():
-    """설치된 share → 소스 트리 순으로 bag_to_csv.py 를 찾는다."""
+    """crazyflie_test 의 설치된 share → 소스 트리 순으로 bag_to_csv.py 를 찾는다."""
     bases = []
     try:
         from ament_index_python.packages import get_package_share_directory
         bases.append(get_package_share_directory('crazyflie_test'))
     except Exception:
         pass
-    bases.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # 소스 트리: crazyflie_traj/crazyflie_traj/ → 레포 루트 → crazyflie_test
+    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    bases.append(os.path.join(repo, 'crazyflie_test'))
     for base in bases:
         path = os.path.join(base, 'scripts', 'bag_to_csv.py')
         if os.path.exists(path):
@@ -78,7 +80,7 @@ def record_one(shape, speed, laps, yaw, cf, out_root, extra, to_csv, gt_topic):
                            preexec_fn=os.setsid)
     time.sleep(2.0)      # 레코더가 구독을 붙일 시간
 
-    fly = ['ros2', 'run', 'crazyflie_test', shape,
+    fly = ['ros2', 'run', 'crazyflie_traj', shape,
            '--laps', str(laps), '--speed', str(speed), '--yaw', yaw] + list(extra)
     print('  비행:', ' '.join(fly))
     subprocess.run(fly)  # 블로킹 — 착륙까지 대기
