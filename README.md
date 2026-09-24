@@ -367,6 +367,25 @@ ros2 run crazyflie_test star    --laps 3 --speed 1.0 --yaw constant
 맞춘다(속도만 독립 변수로 실험 가능). 시작·종료만 램프시켜 t=0 에서 속도·가속도가 0이라
 호버에서 이어붙여도 충격이 없다. `cmdFullState` 스트리밍이므로 상태추정이 튼튼해야 한다.
 
+#### rviz 시각화 (계획 vs 실궤적)
+
+비행 중 **원본(계획) 궤적과 실제 자취를 실시간으로 겹쳐 본다**. 서버가 뜬 상태에서
+별도 터미널 둘:
+
+```bash
+ros2 run crazyflie_test traj_markers --ros-args -p shape:=clover
+rviz2 -d $(ros2 pkg prefix crazyflie_test)/share/crazyflie_test/config/traj.rviz
+```
+
+- 🔵 `/traj/path` (하늘색) — **계획 궤적**: `shape`/`scale`/`height` 로 그린 이상 경로
+- 🟡 `/traj/flown` (노랑) — **실궤적**: 드론 `/tf`(world→cf231) 누적 실제 자취
+
+`shape`(기본과 다르면 `scale`/`height` 도)를 **비행과 같게** 맞춰야 계획선이 겹친다.
+실궤적은 `/tf` 가 필요하니 비행 내내 켜 두며, **노드를 끌 때까지 모든 점을 누적**한다
+(`trail_max:=0`=무제한 기본값; 무거우면 `-p trail_step:=0.05` 로 점 간격을 넓히거나
+`-p trail_max:=20000` 로 상한). `collect_traj_data` 처럼 여러 도형을 순회할 땐 계획선은
+설정한 한 도형만 맞고, 실궤적은 도형과 무관하게 그려진다.
+
 #### sim IMU/PWM 확장 (⚠ 서브모듈 패치)
 
 sim(`crazyflie_sim`)은 원래 `firmware_logging` 을 무시해 **imu_raw/motor_pwm/pose 를
@@ -410,7 +429,11 @@ ros2 run crazyflie_test collect_traj_data --shapes clover circle star \
      --speeds 1.0 2.0 --laps 3 --yaw forward --to-csv --out traj_data
 ```
 
-기록 토픽: `pose · imu_raw · motor_pwm · cmd_full_state`(= 레퍼런스 입력).
+기록 토픽: `pose · imu_raw · motor_pwm · cmd_full_state`(= 레퍼런스 입력) `· status`
+(배터리 전압·supervisor) `· /poses`(mocap ground-truth 위치; `--gt-topic` 으로 지정,
+sim 은 `--gt-topic ''` 로 끈다).
+비행 중 **각 랩마다** 터미널에 `[<도형> <속도>m/s] 랩 k/N  배터리 x.xx V` 가 찍힌다
+(실기체 `status` 필요, sim 은 배터리 `N/A`).
 출력 폴더(Blackbird 미러): `traj_data/<shape>/<yawType>/<shape>_maxSpeed<V>/{bag, csv}`
 (예 `clover/yawForward/clover_maxSpeed2p0/`). `--to-csv` 는 `scripts/bag_to_csv.py` 로
 토픽별 CSV 를 만든다(약 100 Hz, 토픽별 timestamp 다르므로 오프라인 리샘플·정렬 필요).

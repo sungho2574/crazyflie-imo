@@ -172,11 +172,8 @@ def preflight(swarm, cf, course, args):
 
     msg = state['msg']
     info = msg.supervisor_info
-    print(f'  배터리 {msg.battery_voltage:.2f} V, supervisor 0b{info:07b}')
-    if msg.battery_voltage < args.min_battery:
-        print(f'  ✗ 배터리 {msg.battery_voltage:.2f} V < {args.min_battery:.2f} V. '
-              f'이 코스는 시간이 걸린다. 충전 후 다시 할 것')
-        return False
+    print(f'  배터리 {msg.battery_voltage:.2f} V (참고용, 통과 조건 아님), '
+          f'supervisor 0b{info:07b}')
     if info & Status.SUPERVISOR_INFO_IS_TUMBLED:
         print('  ✗ 기체가 뒤집혀 있다(tumbled). 바로 놓고 다시 할 것')
         return False

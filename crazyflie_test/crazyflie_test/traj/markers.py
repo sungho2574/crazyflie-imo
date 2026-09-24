@@ -48,7 +48,7 @@ class TrajMarkers(Node):
         p('robot_frame', 'cf231')
         p('show_trail', True)
         p('trail_step', 0.02)
-        p('trail_max', 8000)
+        p('trail_max', 0)             # 0=무제한(끌 때까지 전부 누적)
         p('samples', 800)
 
         self.frame_id = self.get_parameter('frame_id').value
@@ -95,16 +95,12 @@ class TrajMarkers(Node):
                 continue
             tr = t.transform.translation
             q = (tr.x, tr.y, tr.z)
-            if not self.trail:
+            # 끌 때까지 전부 누적: 점프로 초기화하지 않고, 이동분(step)만 쌓는다.
+            if not self.trail or math.dist(q, self.trail[-1]) >= step:
                 self.trail.append(q)
-            else:
-                d = math.dist(q, self.trail[-1])
-                if d > 1.0:                    # 큰 점프 = 재시작/재배치 → 초기화
-                    self.trail = [q]
-                elif d >= step:
-                    self.trail.append(q)
-                    if len(self.trail) > int(self.get_parameter('trail_max').value):
-                        self.trail.pop(0)
+                cap = int(self.get_parameter('trail_max').value)
+                if cap > 0 and len(self.trail) > cap:
+                    self.trail.pop(0)
 
     def _publish_flown(self):
         stamp = self.get_clock().now().to_msg()

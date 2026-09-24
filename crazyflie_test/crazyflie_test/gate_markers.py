@@ -62,7 +62,7 @@ class GateMarkers(Node):
         p('show_trail', True)       # 드론이 지나간 실제 경로를 그린다
         p('robot_frame', 'cf231')   # TF child_frame_id (기체 이름). world→이 프레임
         p('trail_step', 0.02)       # 이만큼 움직였을 때만 점 추가 [m]
-        p('trail_max', 6000)        # 자취 최대 점 수 (오래되면 앞에서 버림)
+        p('trail_max', 0)           # 자취 최대 점 수. 0=무제한(끌 때까지 전부 누적)
 
         self.frame_id = self.get_parameter('frame_id').value
         self.course = gc.load_course(self.get_parameter('gates_yaml').value or None)
@@ -100,16 +100,12 @@ class GateMarkers(Node):
                 continue
             tr = t.transform.translation
             p = (tr.x, tr.y, tr.z)
-            if not self.trail:
+            # 끌 때까지 전부 누적: 점프로 초기화하지 않고, 이동분(step)만 쌓는다.
+            if not self.trail or math.dist(p, self.trail[-1]) >= step:
                 self.trail.append(p)
-            else:
-                d = math.dist(p, self.trail[-1])
-                if d > 1.0:                 # 큰 점프 = sim 재시작/재배치 → 자취 초기화
-                    self.trail = [p]
-                elif d >= step:
-                    self.trail.append(p)
-                    if len(self.trail) > int(self.get_parameter('trail_max').value):
-                        self.trail.pop(0)
+                cap = int(self.get_parameter('trail_max').value)
+                if cap > 0 and len(self.trail) > cap:
+                    self.trail.pop(0)
 
     def _publish_trail(self):
         msg = Path()
