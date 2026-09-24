@@ -135,6 +135,8 @@ def parse_args(shape_name):
     p.add_argument('--min-battery', type=float, default=MIN_BATTERY,
                    help='이 전압 미만이면 이륙 안 함 [V]. 0 이면 검사 안 함')
     p.add_argument('--no-arm', action='store_true', help='arm 요청 안 함')
+    p.add_argument('--no-rviz', action='store_true',
+                   help='rviz2 를 띄우지 않음 (계획/실궤적 토픽은 그대로 발행)')
     p.add_argument('--dry-run', action='store_true', help='계획만 출력, 비행 안 함')
     args, _ = p.parse_known_args()
     return args
@@ -211,6 +213,12 @@ def run(shape_name, **shape_kwargs):
     off = np.array([init[0], init[1], 0.0])       # 도형 xy 를 이륙 지점에 얹는다
     p0 = traj.eval(0.0)[0] + off                  # 궤적 시작 world 좌표 (z 는 도형 고도)
 
+    # rviz: 이번 비행의 계획선(/traj/path)·실궤적(/traj/flown). 도형·오프셋이 비행과 같다
+    from .viz import FlightViz, open_rviz
+    viz = FlightViz(swarm.allcfs, shape_fn, off, robot_frame=cf.prefix.strip('/'))
+    if not args.no_rviz:
+        open_rviz()
+
     cf.takeoff(targetHeight=float(p0[2]), duration=3.0)
     th.sleep(3.5)
     cf.goTo(p0, yaw=traj.eval(0.0)[3], duration=3.0)
@@ -253,3 +261,4 @@ def run(shape_name, **shape_kwargs):
     th.sleep(0.3)
     cf.land(targetHeight=0.04, duration=3.0)
     th.sleep(3.5)
+    viz.publish_flown()                            # 착륙까지의 최종 자취

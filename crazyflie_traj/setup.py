@@ -30,7 +30,6 @@ setup(
             'star = crazyflie_traj.entry:star',
             'collect_traj_data = crazyflie_traj.collect_data:main',
             'traj_gen = crazyflie_traj.generator:main',
-            'traj_markers = crazyflie_traj.markers:main',
         ],
     },
 )

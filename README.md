@@ -49,10 +49,10 @@ ros2_ws/src/crazyflie-imo
 │   ├── crazyflie_traj/
 │   │   ├── shapes.py               #   도형 정의 (circle/oval/figure8/clover/star)
 │   │   ├── flight.py               #   연속-랩 cmdFullState 비행 로직
+│   │   ├── viz.py                  #   비행 중 rviz 계획/실궤적 발행 + rviz 자동 실행
 │   │   ├── entry.py                #   도형별 실행 진입점
 │   │   ├── collect_data.py         #   도형×속도 순회 rosbag 수집
-│   │   ├── generator.py            #   오프라인 레퍼런스 CSV·플롯
-│   │   └── markers.py              #   rviz 계획/실궤적 마커
+│   │   └── generator.py            #   오프라인 레퍼런스 CSV·플롯
 │   └── config/traj.rviz
 │
 ├── crazyflie_racing/               # 게이트 코스
@@ -114,7 +114,7 @@ crazyflie_test/patches/apply_sim_patch.sh
 모든 비행 스크립트는 **crazyflie 서버가 떠 있는 상태**에서 별도 터미널로 실행한다.
 서버는 한 번 띄워 두고 스크립트를 여러 번 돌려도 된다.
 
-### `crazyflie_test` launch — 일반 비행 · 주기 궤적
+### `crazyflie_test` launch — 기본 예제 · 주기 궤적
 
 ```bash
 ros2 launch crazyflie_test launch.py                          # opticalflow + cflib (기본)
@@ -199,16 +199,19 @@ Blackbird 데이터셋의 설계 철학(**주기성 · 속도 격리 · yaw 모�
 | --------------------------------------- | --------------------------------------- |
 | `circle` `oval` `figure8` `clover` `star` | 도형 연속-랩 비행                     |
 | `collect_traj_data`                     | 도형×속도 순회하며 rosbag 수집          |
-| `traj_markers`                          | rviz 계획 궤적 / 실궤적                 |
 | `traj_gen`                              | 오프라인 레퍼런스 CSV·플롯 (비행 없음)  |
 
-서버는 `crazyflie_test` launch 로 띄운다(예: `ros2 launch crazyflie_test launch.py backend:=sim`).
-
-### 비행
+### 비행 (터미널 2개)
 
 ```bash
-ros2 run crazyflie_traj circle  --laps 5 --speed 1.5 --yaw forward
+# T1 — 서버
+ros2 launch crazyflie_test launch.py backend:=sim
+```
+
+```bash
+# T2 — 비행. rviz 가 자동으로 뜨고 계획 궤적·실궤적을 보여 준다
 ros2 run crazyflie_traj clover  --laps 3 --speed 2.0
+ros2 run crazyflie_traj circle  --laps 5 --speed 1.5 --yaw forward
 ros2 run crazyflie_traj star    --laps 3 --speed 1.0 --yaw constant
 ros2 run crazyflie_traj figure8 --dry-run          # 계획만 확인
 ```
@@ -224,6 +227,7 @@ ros2 run crazyflie_traj figure8 --dry-run          # 계획만 확인
 | `--ramp`        | 2.0     | 시작/종료 가감속 [s] (호버에서 매끄럽게 진입·이탈)   |
 | `--min-battery` | 3.7     | 이 전압 미만이면 이륙 안 함 [V]                      |
 | `--no-arm`      | -       | arm 요청 안 함                                       |
+| `--no-rviz`     | -       | rviz2 자동 실행 안 함 (토픽은 그대로 발행)           |
 | `--dry-run`     | -       | 계획만 출력(실현 속도/가속도/bbox), 비행 안 함       |
 
 - **속도 격리**: 같은 도형을 그대로 두고 `period = max|dp/ds| / speed` 만 바꿔 목표 속도를
@@ -234,29 +238,17 @@ ros2 run crazyflie_traj figure8 --dry-run          # 계획만 확인
 
 ### rviz (계획 vs 실궤적)
 
-서버가 뜬 상태에서 별도 터미널 둘:
+**비행 명령이 알아서 띄운다.** 이륙 전에 rviz2(`traj.rviz`)를 실행하고 두 선을 발행한다.
 
-```bash
-ros2 run crazyflie_traj traj_markers --ros-args -p shape:=clover
-rviz2 -d $(ros2 pkg prefix crazyflie_traj)/share/crazyflie_traj/config/traj.rviz
-```
+- 🔵 `/traj/path` (하늘색) — **계획 궤적**: 이번 비행의 도형 한 랩
+- 🟡 `/traj/flown` (노랑) — **실궤적**: 드론 `/tf`(world→기체) 누적 실제 자취
 
-- 🔵 `/traj/path` (하늘색) — **계획 궤적**: `shape`/`scale`/`height` 로 그린 이상 경로
-- 🟡 `/traj/flown` (노랑) — **실궤적**: 드론 `/tf`(world→cf231) 누적 실제 자취
+- 계획선은 비행과 **같은 도형·`--scale`·`--height`·이륙 위치**로 그리므로 맞출 게 없다.
+- rviz 가 이미 `traj.rviz` 로 떠 있으면 새로 띄우지 않고, 비행이 끝나도 닫지 않는다.
+  다음 비행을 시작하면 계획선이 그 도형으로 바뀌고 자취는 새로 쌓인다.
+- 원격 접속 등으로 rviz 가 필요 없으면 `--no-rviz`.
 
-| 파라미터      | 기본       | 설명                                           |
-| ------------- | ---------- | ---------------------------------------------- |
-| `shape`       | `clover`   | 계획선으로 그릴 도형 (비행과 같게)             |
-| `scale`       | 1.0        | 도형 배율 (비행과 같게)                        |
-| `height`      | 1.0        | 고도 (비행과 같게)                             |
-| `center`      | `[0, 0]`   | 도형 xy 중심 = 기체 `initial_position` xy      |
-| `robot_frame` | `cf231`    | 실궤적을 그릴 TF 프레임                        |
-| `show_trail`  | true       | 실궤적 표시                                    |
-| `trail_step`  | 0.02       | 이만큼 움직였을 때만 점 추가 [m]               |
-| `trail_max`   | 0          | 자취 최대 점 수 (0=무제한, 끌 때까지 누적)     |
-
-`collect_traj_data` 처럼 여러 도형을 순회할 땐 계획선은 설정한 한 도형만 맞고,
-실궤적은 도형과 무관하게 그려진다.
+비행 없이 도형만 확인하려면 `--dry-run`(수치) 또는 `traj_gen --plot`(그림)을 쓴다.
 
 ### 데이터 수집
 
@@ -286,6 +278,7 @@ ros2 run crazyflie_traj collect_traj_data --shapes clover circle star \
 
 - 기록 토픽: `pose · imu_raw · motor_pwm · cmd_full_state`(= 레퍼런스 입력) `· status`
   (배터리·supervisor) `· /poses`(mocap GT).
+- 도형마다 비행 명령을 실행하므로 rviz 계획선도 **도형이 바뀔 때마다 자동으로 바뀐다.**
 - 비행 중 **각 랩마다** `[<도형> <속도>m/s] 랩 k/N  배터리 x.xx V` 가 찍힌다
   (실기체 `status` 필요, sim 은 배터리 `N/A`).
 - 출력 폴더(Blackbird 미러): `traj_data/<shape>/<yawType>/<shape>_maxSpeed<V>/{bag, csv}`
