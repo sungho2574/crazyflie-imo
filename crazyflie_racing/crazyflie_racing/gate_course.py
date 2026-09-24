@@ -249,9 +249,14 @@ def load_trajectory(path=None):
     ROS(crazyflie_py) 가 없으면 ImportError 가 난다. 그런 환경에서는
     `sample_trajectory` 가 crazyflie_py 없이도 동작한다.
     """
-    from crazyflie_py.uav_trajectory import Trajectory
+    from crazyflie_py.uav_trajectory import Polynomial4D, Trajectory
+    # Trajectory.loadcsv 는 조각이 1개인 CSV 를 1차원으로 읽어 깨진다(gate_loop_entry.csv).
+    # 항상 2차원으로 읽는 load_rows 로 직접 채운다.
+    rows = load_rows(path or default_trajectory_path())
     traj = Trajectory()
-    traj.loadcsv(path or default_trajectory_path())
+    traj.polynomials = [Polynomial4D(r[0], r[1:9], r[9:17], r[17:25], r[25:33])
+                        for r in rows]
+    traj.duration = float(rows[:, 0].sum())
     return traj
 
 
