@@ -66,7 +66,7 @@ ros2_ws/src/crazyflie-imo
 │   │   ├── gate_trajectory.csv     # TOGT 결과 (커밋돼 있음)
 │   │   ├── crazyflies_gate.yaml    # initial_position = start 로 맞춘 기체 설정
 │   │   └── gate_course.rviz
-│   ├── launch/launch.py            # mode:=gate(기본) | mocap
+│   ├── launch/launch.py            # 서버 + gate_markers + rviz. mode:=gate(기본) | mocap
 │   └── togt_tools/                 # TOGT 오프라인 도구 (colcon 빌드 대상 아님)
 │       ├── TOGT-Planner/           #   [서브모듈] FSC-Lab TOGT-Planner
 │       ├── togt_plan.cpp, CMakeLists.txt
@@ -139,10 +139,15 @@ ros2 launch crazyflie_racing launch.py                # Flow deck 실기체
 ros2 launch crazyflie_racing launch.py mode:=mocap    # mocap 실기체
 ```
 
-| 인자      | 값                         | 기본    |
-| --------- | -------------------------- | ------- |
-| `mode`    | `gate` \| `mocap`          | `gate`  |
-| `backend` | `cflib` \| `cpp` \| `sim`  | `cflib` |
+| 인자         | 값                         | 기본    | 설명                                         |
+| ------------ | -------------------------- | ------- | -------------------------------------------- |
+| `mode`       | `gate` \| `mocap`          | `gate`  | 기체 설정 선택 (아래)                        |
+| `backend`    | `cflib` \| `cpp` \| `sim`  | `cflib` |                                              |
+| `markers`    | `true` \| `false`          | `true`  | `gate_markers` 노드 같이 실행                |
+| `rviz`       | `true` \| `false`          | `true`  | `gate_course.rviz` 로 rviz2 같이 실행        |
+| `trajectory` | CSV 경로                   | (빈 값) | 마커로 그릴 궤적. 비우면 `config/gate_trajectory.csv` |
+
+서버 + 게이트·궤적 마커 + rviz 가 한 번에 뜬다. 비행(`gate_flight`)만 별도 터미널에서 실행한다.
 
 - `gate` — `crazyflie_racing/config/crazyflies_gate.yaml` (`initial_position` = gates.yaml `start`)
 - `mocap` — `crazyflie_test` 의 `crazyflies_mocap.yaml` · `motion_capture.yaml` 을 그대로 사용
@@ -345,28 +350,23 @@ ros2 run crazyflie_racing gate_flight --dry-run
 
 통과 순서·궤적 시간·조각 수·방 경계·게이트 프레임 여유를 출력한다.
 
-### 3. 시뮬레이션 (터미널 4개)
+### 3. 시뮬레이션 (터미널 2개)
 
-⚠️ 노드는 **각각 별도 터미널에서 포그라운드로** 실행하고 `Ctrl+C` 로 확실히 끈다.
-`&` 로 돌리면 `gate_markers` 가 겹쳐 rviz 경로가 깜빡인다([문제 해결](#문제-해결)).
+launch 가 sim 서버 · `gate_markers` · rviz 를 함께 띄운다.
 
 ```bash
-# T1 — sim 서버 (crazyflies_gate.yaml 자동 선택)
+# T1 — sim 서버 + 게이트·궤적 마커 + rviz (crazyflies_gate.yaml 자동 선택)
 export PYTHONPATH=~/crazyflie/crazyflie-firmware/build:$PYTHONPATH
 ros2 launch crazyflie_racing launch.py backend:=sim
 ```
 ```bash
-# T2 — 게이트·궤적 마커 (하나만)
-ros2 run crazyflie_racing gate_markers
-```
-```bash
-# T3 — rviz
-rviz2 -d $(ros2 pkg prefix crazyflie_racing)/share/crazyflie_racing/config/gate_course.rviz
-```
-```bash
-# T4 — 비행
+# T2 — 비행
 ros2 run crazyflie_racing gate_flight
 ```
+
+⚠️ launch 가 이미 `gate_markers` 를 띄우므로 따로 `ros2 run ... gate_markers` 를 또 켜지
+않는다. 두 개가 뜨면 rviz 경로가 깜빡인다([문제 해결](#문제-해결)). 다른 궤적을 보려면
+`trajectory:=/path/to.csv`, 마커나 rviz 가 필요 없으면 `markers:=false` / `rviz:=false`.
 
 ### 4. 실기체
 
@@ -465,6 +465,8 @@ rviz 의 **주황 사각형**이 이 유효 창이다. 값을 바꾸면 `plan_ga
 
 ### rviz (`gate_markers`)
 
+`crazyflie_racing` launch 가 기본으로 함께 띄운다. 단독 실행은
+`ros2 run crazyflie_racing gate_markers` (launch 에 `markers:=false` 를 준 경우만).
 `gate_flight` 가 실행하는 **같은 궤적 CSV** 를 샘플해 그린다(보이는 경로 = 나는 경로).
 
 - 방 경계 · 게이트 프레임(초록, `G1`..`G7`) · 유효 통과 창(주황) · 통과 방향 화살표 · `TAKEOFF`
@@ -562,8 +564,8 @@ ros2 run crazyflie reboot --uri radio://0/80/2M/E7E7E7E7E7
 
 > ⚠️ 라디오를 직접 여는 명령이라 서버가 떠 있으면 동글 충돌(busy)이 난다. launch 를 먼저 끈다.
 
-**rviz 게이트 경로가 두 개 겹쳐 깜빡임** — 옛 `gate_markers` 가 안 죽고 남은 것이다.
-`pkill -f gate_markers` 후 하나만 다시 띄운다. `ros2 topic info /gate_course/path` 의
+**rviz 게이트 경로가 두 개 겹쳐 깜빡임** — `gate_markers` 가 두 개 떠 있는 것이다(launch 가
+이미 띄웠는데 따로 또 실행했거나, 옛 프로세스가 남음). `pkill -f gate_markers` 후 launch 를 다시 띄운다. `ros2 topic info /gate_course/path` 의
 `Publisher count` 가 **1** 이어야 한다.
 
 **sim 이 `startTrajectory` 에서 `plan_start_trajectory() missing ... start_yaw` 로 죽음** —

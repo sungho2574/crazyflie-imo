@@ -3,8 +3,11 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 PACKAGE_NAME = 'crazyflie_racing'
 
@@ -19,6 +22,22 @@ def generate_launch_description():
         'backend',
         default_value='cflib',
         description='cflib, cpp, sim 중 하나',
+    )
+
+    markers_arg = DeclareLaunchArgument(
+        'markers',
+        default_value='true',
+        description='gate_markers(게이트·계획 궤적·실궤적 마커) 실행',
+    )
+    rviz_arg = DeclareLaunchArgument(
+        'rviz',
+        default_value='true',
+        description='gate_course.rviz 로 rviz2 실행',
+    )
+    trajectory_arg = DeclareLaunchArgument(
+        'trajectory',
+        default_value='',
+        description='마커로 그릴 궤적 CSV. 비우면 패키지 config/gate_trajectory.csv',
     )
 
     mode = LaunchConfiguration('mode')
@@ -51,8 +70,33 @@ def generate_launch_description():
         }.items(),
     )
 
+    # 게이트·궤적 마커. 노드가 하나만 떠야 rviz 경로가 깜빡이지 않는다
+    gate_markers = Node(
+        package=PACKAGE_NAME,
+        executable='gate_markers',
+        name='gate_markers',
+        output='screen',
+        parameters=[{'trajectory': ParameterValue(
+            LaunchConfiguration('trajectory'), value_type=str)}],
+        condition=IfCondition(LaunchConfiguration('markers')),
+    )
+
+    rviz = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', os.path.join(racing_config, 'gate_course.rviz')],
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('rviz')),
+    )
+
     return LaunchDescription([
         mode_arg,
         backend_arg,
+        markers_arg,
+        rviz_arg,
+        trajectory_arg,
         crazyflie_launch,
+        gate_markers,
+        rviz,
     ])
