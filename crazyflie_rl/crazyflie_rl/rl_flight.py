@@ -3,7 +3,9 @@
     ros2 launch crazyflie_rl launch.py                          # 서버(모캡·PID·rate 모드·로깅)
     ros2 run crazyflie_rl rl_flight --dry-run                   # 정책 로드·첫 행동만 확인
     ros2 run crazyflie_rl rl_flight --shadow                    # 관측만: 정책 출력을 기록 (명령 안 보냄)
-    ros2 run crazyflie_rl rl_flight                             # 실제 비행
+    ros2 run crazyflie_rl rl_flight                             # 실제 비행 (기본 모델)
+    ros2 run crazyflie_rl rl_flight --model 5s                  # 모델 선택 (이름 일부로)
+    ros2 run crazyflie_rl rl_flight --list-models               # 설치된 모델 목록
 
 루프 (100 Hz, 학습 control_hz):
     무선 로그(rl_pv · rl_att · rl_gyro) → 관측 49 → 정책 → [ωx, ωy, ωz, 총추력]
@@ -32,7 +34,7 @@ import numpy as np
 
 from crazyflie_racing import gate_course as gc
 
-from .policy import RacingPolicy
+from .policy import DEFAULT_MODEL, RacingPolicy, list_models, resolve_model
 from .racing_obs import RacingObserver, quat_to_matrix
 
 SIM_MASS = 0.0319                  # 학습 기체(crazyflow cf2x_L250) 질량 — 호버 추력 기준
@@ -40,11 +42,15 @@ G = 9.81
 PWM_FULL = 65535.0
 DEFAULT_THRUST_MAX = 0.12          # crazyflow 모델: 모터 추력 = PWM/65535 × 0.12 N (보정 전 기본)
 PWM_MIN, PWM_MAX = 1001, 60000     # 레거시 명령: 1000 미만은 0 으로 처리, 60000 상한
+MAX_TILT_CAP = 85.0                # 기울기 중단 기준 자동 설정 상한 [deg]
 
 
 def parse_args():
     p = argparse.ArgumentParser(description='강화학습 레이싱 정책 실기체 비행')
-    p.add_argument('--model-dir', default=None, help='정책 폴더 (기본: 패키지 models/)')
+    p.add_argument('--model', default=None,
+                   help=f'models/ 안의 모델 이름 또는 고유한 일부 (기본 {DEFAULT_MODEL})')
+    p.add_argument('--model-dir', default=None, help='모델 폴더를 경로로 직접 지정 (--model 보다 우선)')
+    p.add_argument('--list-models', action='store_true', help='설치된 모델 목록과 학습 평가 출력')
     p.add_argument('--gates', default=None, help='gates.yaml (기본: crazyflie_racing config)')
     p.add_argument('--shadow', action='store_true',
                    help='명령을 보내지 않고 관측·정책 출력만 기록 (다른 방법으로 비행 중일 때)')
@@ -53,7 +59,9 @@ def parse_args():
                    help='호버 PWM 을 직접 지정 (기본: 이륙 후 호버 중 측정)')
     p.add_argument('--calib-time', type=float, default=2.0, help='호버 PWM 측정 시간 [s]')
     p.add_argument('--max-time', type=float, default=25.0, help='정책 비행 최대 시간 [s]')
-    p.add_argument('--max-tilt', type=float, default=70.0, help='이 기울기 넘으면 중단 [deg]')
+    p.add_argument('--max-tilt', type=float, default=None,
+                   help='이 기울기 넘으면 중단 [deg]. 기본: 70 과 (모델 학습 평가 최대 기울기 + 10) 중 '
+                        f'큰 값, 최대 {MAX_TILT_CAP:.0f}')
     p.add_argument('--wall-margin', type=float, default=0.3, help='방 벽까지 이보다 가까우면 중단 [m]')
     p.add_argument('--min-z', type=float, default=0.2, help='이보다 낮으면 중단 [m]')
     p.add_argument('--stale', type=float, default=0.1, help='상태 로그가 이만큼 끊기면 중단 [s]')
@@ -63,6 +71,20 @@ def parse_args():
     p.add_argument('--record', action='store_true', help='rosbag 도 기록')
     args, _ = p.parse_known_args()
     return args
+
+
+def print_models():
+    print('[rl_flight] 설치된 모델 (--model <이름 또는 고유한 일부>)')
+    for name in list_models():
+        try:
+            ev = RacingPolicy(resolve_model(name)).eval
+            info = (f'G7 {ev.get("gate7_time_median_s", float("nan")):5.2f} s, '
+                    f'최대 {ev.get("max_speed_m_s", float("nan")):.1f} m/s, '
+                    f'{ev.get("max_tilt_deg", float("nan")):.0f}°') if ev else '평가 파일 없음'
+        except ValueError as exc:
+            info = f'사용 불가: {exc}'
+        mark = ' (기본)' if name == DEFAULT_MODEL else ''
+        print(f'  {name:32s} {info}{mark}')
 
 
 class StateBuffer:
@@ -138,12 +160,25 @@ def dry_run(policy, observer, finish):
 
 def main():
     args = parse_args()
-    policy = RacingPolicy(args.model_dir)
+    if args.list_models:
+        print_models()
+        return
+    policy = RacingPolicy(resolve_model(args.model, args.model_dir))
+    if args.max_tilt is None:
+        # 학습 평가에서 정상 비행이 이만큼 기운다 → 그보다 여유 있게 잡는다
+        args.max_tilt = min(MAX_TILT_CAP, max(70.0, policy.eval.get('max_tilt_deg', 0.0) + 10.0))
     course = gc.load_course(args.gates)
     finish = course.start_hover()
     observer = RacingObserver(course, finish, args.aperture_margin)
-    print(f'[rl_flight] 정책 로드 (iteration {policy.iteration}, {policy.control_hz} Hz), '
+    ev = policy.eval
+    print(f'[rl_flight] 모델 {policy.name} (iteration {policy.iteration}, {policy.control_hz} Hz), '
           f'게이트 {len(course.gates)}개, 결승점 {np.round(finish, 2)}')
+    if ev:
+        print(f'  학습 평가: G7 {ev.get("gate7_time_median_s", float("nan")):.2f} s, 최대 '
+              f'{ev.get("max_speed_m_s", float("nan")):.1f} m/s, 최대 기울기 '
+              f'{ev.get("max_tilt_deg", float("nan")):.0f}°')
+    print(f'  안전 기준: 기울기 {args.max_tilt:.0f}°, 벽 {args.wall_margin:.2f} m, '
+          f'고도 ≥ {args.min_z:.2f} m, 로그 끊김 {args.stale * 1000:.0f} ms, {args.max_time:.0f} s')
     dry_run(policy, observer, finish)
     if args.dry_run:
         return

@@ -1,0 +1,57 @@
+{
+  "task": "fast G7 body-rate domain-randomized PPO",
+  "source_sha256": {
+    "trajectory": "494d78464f17f114d54c44e676b864f321905daca993503a038bc88d44aff04b",
+    "quad": "5e4677d48da50fb18646d465b010cb40b03872914fa737fb94705e8a59a4b8e0",
+    "course": "371be7c86c963feb776f13768684649b34e33e36c405b7756869defcbfa84c97"
+  },
+  "created_utc": "2026-09-26T04:10:45.968418+00:00",
+  "eval_seed": 2026,
+  "initial_checkpoint": "runs/racing-body-rate-dr-v1/best.msgpack",
+  "control_mode": "body_rate",
+  "action_units": [
+    "rad/s",
+    "rad/s",
+    "rad/s",
+    "N"
+  ],
+  "return_definition": "all seven gates once forward, return <0.1m and <0.2m/s for 0.5s",
+  "teacher_during_ppo": false,
+  "learned_policy_anchor": "runs/racing-body-rate-final/best.msgpack",
+  "devices": [
+    "cuda:0"
+  ],
+  "selected_from": "/home/artemis/crazy_flow_Artemis/runs/racing-body-rate-dr-v2",
+  "selected_iteration": 1,
+  "checkpoint_sha256": "3d21035cf313f181b5818b975ae05c2558c4a4ca2708ef7f066677d6a60e31be",
+  "target_gate7_s": null,
+  "domain_randomization": {
+    "enabled": true,
+    "strength": 1.0,
+    "mass_fraction": 0.05,
+    "inertia_fraction": 0.1,
+    "thrust_fraction": 0.05,
+    "torque_fraction": 0.05,
+    "motor_response_fraction": 0.15,
+    "drag_fraction": 0.2,
+    "rate_gain_fraction": 0.1,
+    "wind_acceleration_m_s2": 0.1,
+    "gust_acceleration_m_s2": 0.05,
+    "position_bias_m": 0.005,
+    "position_noise_m": 0.003,
+    "velocity_bias_m_s": 0.015,
+    "velocity_noise_m_s": 0.025,
+    "attitude_bias_rad": 0.005,
+    "attitude_noise_rad": 0.003,
+    "rate_bias_rad_s": 0.015,
+    "rate_noise_rad_s": 0.025,
+    "rpm_bias_fraction": 0.01,
+    "rpm_noise_fraction": 0.01,
+    "gate_position_bias_m": 0.01,
+    "gate_yaw_bias_rad": 0.01745329252,
+    "observation_delay_steps": 1,
+    "command_delay_steps": 1
+  },
+  "time_in_actor_observation": false,
+  "teacher_at_inference": false
+}

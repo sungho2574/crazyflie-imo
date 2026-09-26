@@ -15,7 +15,7 @@ import numpy as np
 
 from crazyflie_racing import gate_course as gc
 
-from .policy import MOTOR_THRUST_MAX, MOTOR_THRUST_MIN, RacingPolicy
+from .policy import MOTOR_THRUST_MAX, MOTOR_THRUST_MIN, RacingPolicy, resolve_model
 from .racing_obs import RacingObserver
 
 G = 9.81
@@ -26,6 +26,7 @@ YAW_K = 1.4592584373980652e-12 / 2.4582929831265485e-10      # 반토크/추력 
 DRAG = np.diag([-0.01471782, -0.01471782, -0.01277641])      # 기체 좌표계 항력 [N/(m/s)]
 # 모터 m1(앞오른) m2(뒤오른) m3(뒤왼) m4(앞왼) — crazyflow mixing_matrix 와 같은 순서
 MIX = np.array([[-1., -1., 1., 1.], [-1., 1., 1., -1.], [-1., 1., -1., 1.]])
+TRAIN_MAX_TILT = float(np.degrees(np.arccos(0.3)))           # 학습 환경 실패 기준 body_z < 0.3 ≈ 72.5°
 ALLOC = np.vstack([np.ones(4), ARM * MIX[0], ARM * MIX[1], YAW_K * MIX[2]])
 
 
@@ -54,7 +55,7 @@ def matrix_to_quat(r):
 
 
 def rollout(policy, course, finish, latency=0.0, rate_tau=0.03, motor_tau=0.03,
-            physics_hz=500, max_time=20.0):
+            physics_hz=500, max_time=20.0, max_tilt=TRAIN_MAX_TILT):
     obs_mgr = RacingObserver(course, finish)
     hz = policy.control_hz
     sub = physics_hz // hz
@@ -102,7 +103,7 @@ def rollout(policy, course, finish, latency=0.0, rate_tau=0.03, motor_tau=0.03,
         log['pos'].append(p.copy())
         log['gate'].append(obs_mgr.gate)
         log['cmd'].append(cmd.copy())
-        if r[2, 2] < 0.3 or np.any(p < lo_room) or np.any(p > hi_room) or not np.all(np.isfinite(p)):
+        if r[2, 2] < np.cos(np.radians(max_tilt)) or np.any(p < lo_room) or np.any(p > hi_room) or not np.all(np.isfinite(p)):
             return 'crash', t, events, log
         near = np.linalg.norm(p - finish) < 0.1 and np.linalg.norm(v) < 0.2
         settle = settle + 1 if (obs_mgr.gate == 7 and near) else 0
@@ -113,23 +114,27 @@ def rollout(policy, course, finish, latency=0.0, rate_tau=0.03, motor_tau=0.03,
 
 def main():
     ap = argparse.ArgumentParser(description='레이싱 정책 오프라인 점검 (간이 시뮬레이션)')
-    ap.add_argument('--model-dir', default=None)
+    ap.add_argument('--model', default=None, help='models/ 안의 모델 이름 또는 고유한 일부')
+    ap.add_argument('--model-dir', default=None, help='모델 폴더 경로 (--model 보다 우선)')
     ap.add_argument('--gates', default=None, help='gates.yaml (기본: crazyflie_racing config)')
     ap.add_argument('--latency', type=float, default=0.0, help='관측 지연 [s]')
     ap.add_argument('--rate-tau', type=float, default=0.03, help='각속도 추종 시정수 [s]')
     ap.add_argument('--motor-tau', type=float, default=0.03, help='모터 시정수 [s]')
+    ap.add_argument('--max-tilt', type=float, default=TRAIN_MAX_TILT,
+                    help='이 기울기를 넘으면 실패 [deg] (기본: 학습 환경 기준 72.5)')
     ap.add_argument('--plot', default=None, help='궤적 그림 저장 경로 (matplotlib 필요)')
     args, _ = ap.parse_known_args()
 
-    policy = RacingPolicy(args.model_dir)
+    policy = RacingPolicy(resolve_model(args.model, args.model_dir))
     course = gc.load_course(args.gates)
     finish = course.start_hover()
     result, t, events, log = rollout(policy, course, finish, args.latency,
-                                     args.rate_tau, args.motor_tau)
+                                     args.rate_tau, args.motor_tau, max_tilt=args.max_tilt)
     pos = np.array(log['pos'])
     cmd = np.array(log['cmd'])
     speed = np.linalg.norm(np.diff(pos, axis=0), axis=1) * policy.control_hz
-    print(f'[rl_sim_check] 결과: {result} ({t:.2f} s), 지연 {args.latency * 1000:.0f} ms')
+    print(f'[rl_sim_check] 모델 {policy.name} — 결과: {result} ({t:.2f} s), '
+          f'지연 {args.latency * 1000:.0f} ms')
     print('  게이트 통과: ' + (', '.join(f'G{g}@{s:.2f}s' for g, s in events) or '없음'))
     print(f'  최대 속도 {speed.max():.2f} m/s, 명령 각속도 최대 '
           f'{np.abs(cmd[:, :3]).max(axis=0).round(1)} rad/s, 총추력 '
