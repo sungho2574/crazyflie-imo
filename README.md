@@ -83,7 +83,9 @@ ros2_ws/src/crazyflie-imo
 │   │   └── sim_check.py            #   간이 시뮬레이션으로 정책·변환 점검 (기체 불필요)
 │   ├── config/crazyflies_rl.yaml   # 모캡 + PID + RPYT rate 모드 + 정책용 100 Hz 로그
 │   ├── launch/launch.py            # 서버 + gate_markers + rviz
-│   └── models/racing-body-rate-10s-final/   # 가중치(best.msgpack)·학습 설정·평가 결과
+│   └── models/                     # 정책별 가중치(best.msgpack)·학습 설정·평가 결과
+│       ├── racing-body-rate-10s-dr-final/   #   기본: 도메인 랜덤화 버전
+│       └── racing-body-rate-10s-final/      #   이전 버전 (비교용)
 │
 └── analysis/                       # 수집 데이터 오프라인 분석 스크립트 (ROS 패키지 아님)
 ```
@@ -247,33 +249,7 @@ ros2 run crazyflie_traj figure8 --dry-run          # 계획만 확인
 | `--record-dir`  | `~/flight_logs/traj_data` | 기록 루트 폴더                     |
 | `--dry-run`     | -       | 계획만 출력(실현 속도/가속도/bbox), 비행 안 함       |
 
-- **연속 여러 바퀴(`--loop N`)** — 바퀴 사이에 멈추지 않는다. 궤적 3개를 이어 붙인다:
-
-| 파일                       | 구간                                          |
-| -------------------------- | --------------------------------------------- |
-| `gate_loop_entry.csv`      | start 호버 → 이음매 (정지에서 출발)           |
-| `gate_loop_lap.csv`        | 이음매 → G1..G7 → 이음매 (순환 1랩)           |
-| `gate_loop_exit.csv`       | 이음매 → start 호버 (정지로 끝남)             |
-
-이음매((1.5, −1.5, 1.25), +y 로 약 0.78 m/s)에서 세 궤적의 위치·속도·가속도가 같도록
-계획돼 있어 `진입 → 랩 × N → 탈출` 로 끊김 없이 이어진다. 세 궤적을 펌웨어 메모리에
-함께 올리고(조각 1+16+4=21 ≤ 31), 각 궤적이 끝나는 시각에 호스트가 다음 궤적을
-시작한다(절대좌표, `relative=False`). 펌웨어가 궤적을 줄 세우지 못해 전환 명령은
-무선으로 가므로, 지연(수~수십 ms)만큼 이음매에서 수 cm 어긋날 수 있다.
-
-```bash
-ros2 launch crazyflie_racing launch.py backend:=sim loop:=true   # rviz 에 연속 비행 궤적
-ros2 run crazyflie_racing gate_flight --loop 10 --dry-run         # 이음매·총 시간 확인
-ros2 run crazyflie_racing gate_flight --loop 10
-```
-
-- `--dry-run` 이 이음매 3곳(진입→랩, 랩→랩, 랩→탈출)의 pos/vel/acc 차이를 검사한다.
-  궤적 파일을 새로 만들면 여기서 `OK` 인지 먼저 확인할 것.
-- `--timescale` 은 세 궤적에 똑같이 적용되므로 이음매 연속성이 유지된다.
-- 진입·탈출이 랩과 같은 통로를 쓰므로 `경로가 자기 자신과 … 붙는다` 경고는 정상이다.
-- `--laps`(바퀴마다 정지) · `--trajectory` 와는 같이 쓸 수 없다.
-
-**기록(`--record`)**: `pose · imu_raw · motor_pwm · cmd_full_state · status · /poses`(모캡 GT)
+- **기록(`--record`)**: `pose · imu_raw · motor_pwm · cmd_full_state · status · /poses`(모캡 GT)
   를 `<record-dir>/<shape>/<yawType>/<shape>_maxSpeed<V>/bag_<날짜_시각>/` 에 sqlite3(`.db3`)로
   저장한다. `collect_traj_data` 와 같은 구조라 `analysis/visualize_flights.py` 가 그대로 읽는다.
   여러 도형·속도를 순회하며 모으려면 `collect_traj_data` 를 쓴다.
@@ -448,14 +424,76 @@ ros2 run crazyflie_racing gate_flight
 | `--force-start` | -     | initial_position 이 start 와 달라도 강행        |
 | `--dry-run`     | -     | 계획만 출력하고 비행하지 않음                    |
 
+#### 여러 바퀴 비행 — 명령 정리
+
+| 방식                     | 옵션        | 궤적                                   | 바퀴 사이        | rviz 서버 인자  |
+| ------------------------ | ----------- | -------------------------------------- | ---------------- | --------------- |
+| 1바퀴 궤적 반복          | `--laps N`  | `gate_trajectory.csv`                  | start 에서 약 1.5 s 정지 | (기본)   |
+| 연속 궤적                | `--loop N`  | `gate_loop_{entry,lap,exit}.csv`       | 멈추지 않음      | `loop:=true`    |
+
+**1바퀴 궤적 반복 (`--laps`)**
+
+```bash
+# T1 — 서버 (rviz 에 1바퀴 궤적)
+ros2 launch crazyflie_racing launch.py mode:=mocap
+```
+```bash
+# T2 — 계획 확인 → 비행
+ros2 run crazyflie_racing gate_flight --mocap --laps 3 --dry-run
+ros2 run crazyflie_racing gate_flight --mocap --laps 3 --timescale 2
+```
+
+**연속 궤적 (`--loop`)**
+
+```bash
+# T1 — 서버 (rviz 에 진입+순환+탈출 궤적)
+ros2 launch crazyflie_racing launch.py mode:=mocap loop:=true
+```
+```bash
+# T2 — 이음매·총 시간 확인 → 비행
+ros2 run crazyflie_racing gate_flight --mocap --loop 3 --dry-run
+ros2 run crazyflie_racing gate_flight --mocap --loop 3 --timescale 2
+```
+
+- `--laps` 와 `--loop` 는 같이 쓸 수 없다.
+- 둘 다 `--record` 를 붙이면 `~/flight_logs/gate_<시각>/` 에 rosbag 으로 기록된다.
+- 첫 비행은 `--timescale 2`(절반 속도), 익숙해지면 1.
+- Flow deck 이면 `mode:=mocap` 과 `--mocap` 을 빼고, 기체를 start 좌표에 정확히 놓는다.
+
 **여러 바퀴(`--laps N`)** — 업로드한 1바퀴 궤적을 N번 다시 실행한다. 궤적이 start 상공에서
 속도 0 으로 시작·끝나므로, 바퀴 사이에 start 상공에서 `--lap-pause` 동안 **잠깐 멈춰 위치를
-다시 맞춘 뒤** 다음 바퀴를 시작한다(오차가 바퀴마다 누적되지 않게). 멈추지 않는 연속 주행은
-궤적을 여러 바퀴로 다시 계획해야 해서 지원하지 않는다.
+다시 맞춘 뒤** 다음 바퀴를 시작한다(오차가 바퀴마다 누적되지 않게). 멈추지 않고 돌려면
+아래 `--loop` 를 쓴다.
 
 ```bash
 ros2 run crazyflie_racing gate_flight --laps 3 --timescale 2
 ```
+
+**연속 여러 바퀴(`--loop N`)** — 바퀴 사이에 멈추지 않는다. 궤적 3개를 이어 붙인다:
+
+| 파일                       | 구간                                          |
+| -------------------------- | --------------------------------------------- |
+| `gate_loop_entry.csv`      | start 호버 → 이음매 (정지에서 출발)           |
+| `gate_loop_lap.csv`        | 이음매 → G1..G7 → 이음매 (순환 1랩)           |
+| `gate_loop_exit.csv`       | 이음매 → start 호버 (정지로 끝남)             |
+
+이음매((1.5, −1.5, 1.25), +y 로 약 0.78 m/s)에서 세 궤적의 위치·속도·가속도가 같도록
+계획돼 있어 `진입 → 랩 × N → 탈출` 로 끊김 없이 이어진다. 세 궤적을 펌웨어 메모리에
+함께 올리고(조각 1+16+4=21 ≤ 31), 각 궤적이 끝나는 시각에 호스트가 다음 궤적을
+시작한다(절대좌표, `relative=False`). 펌웨어가 궤적을 줄 세우지 못해 전환 명령은
+무선으로 가므로, 지연(수~수십 ms)만큼 이음매에서 수 cm 어긋날 수 있다.
+
+```bash
+ros2 launch crazyflie_racing launch.py backend:=sim loop:=true   # rviz 에 연속 비행 궤적
+ros2 run crazyflie_racing gate_flight --loop 10 --dry-run         # 이음매·총 시간 확인
+ros2 run crazyflie_racing gate_flight --loop 10
+```
+
+- `--dry-run` 이 이음매 3곳(진입→랩, 랩→랩, 랩→탈출)의 pos/vel/acc 차이를 검사한다.
+  궤적 파일을 새로 만들면 여기서 `OK` 인지 먼저 확인할 것.
+- `--timescale` 은 세 궤적에 똑같이 적용되므로 이음매 연속성이 유지된다.
+- 진입·탈출이 랩과 같은 통로를 쓰므로 `경로가 자기 자신과 … 붙는다` 경고는 정상이다.
+- `--laps`(바퀴마다 정지) · `--trajectory` 와는 같이 쓸 수 없다.
 
 **기록(`--record`)** — 이륙 2초 전에 `ros2 bag record` 를 시작해 착륙 후 닫는다(Ctrl+C 로
 중단해도 닫힌다). `~/flight_logs/gate_<날짜_시각>/` 에 sqlite3(`.db3`)로 저장하므로
@@ -566,9 +604,23 @@ PC 가 무선으로 상태를 받아 정책을 계산하고, **각속도 목표 
 
 ### 모델
 
-`models/racing-body-rate-10s-final/` — 학습 산출물의 가중치·설정·평가 결과(소스 코드는 제외).
-JAX·flax 없이 `msgpack` + numpy 로 추론한다. 학습 평가: 64/64 완주, G7 중앙 10.00 s,
-최대 2.66 m/s, 최대 기울기 28.6°.
+학습 산출물의 가중치·설정·평가 결과(소스 코드는 제외). JAX·flax 없이 `msgpack` + numpy 로
+추론한다. 두 모델은 관측·행동 구성이 같아 `--model-dir` 로 바꿔 끼울 수 있다.
+
+| 모델 (`models/…`)                        | 학습 평가 (랜덤화 환경)                          | 비고                  |
+| ---------------------------------------- | ------------------------------------------------ | --------------------- |
+| `racing-body-rate-10s-dr-final` (**기본**) | 256/256 완주, G7 9.98 s, 최대 4.50 m/s·61.2°   | 도메인 랜덤화 PPO     |
+| `racing-body-rate-10s-final`             | 203/1024 완주(19.8%)                              | 랜덤화 없이 학습      |
+
+도메인 랜덤화: 질량 ±5%, 관성 ±10%, 추력·토크 ±5%, 모터 응답 ±15%, 항력 ±20%, 각속도 제어
+이득 ±10%, 바람·돌풍, 위치·속도·자세·각속도·RPM 편향과 노이즈, 게이트 위치·방향 오차,
+관측·명령 지연 1스텝(10 ms). 관측 구성은 그대로이고 노이즈·지연만 더해졌다.
+
+```bash
+# 이전 모델로 비행·점검
+ros2 run crazyflie_rl rl_flight --model-dir \
+  $(ros2 pkg prefix crazyflie_rl)/share/crazyflie_rl/models/racing-body-rate-10s-final
+```
 
 | 관측 (49)                                   | 행동 → 명령 (4)                               |
 | ------------------------------------------- | --------------------------------------------- |
@@ -589,10 +641,20 @@ ros2 run crazyflie_rl rl_sim_check --latency 0.03 --rate-tau 0.05
 ```
 
 crazyflow `cf2x_L250` 파라미터의 강체 모델(각속도·모터는 1차 지연으로 단순화)로 정책을 돌린다.
-현재 모델은 G1..G7 을 순서대로 지나 G7 10.08 s, 12.7 s 에 결승 정착(학습 평가와 일치).
-관측 20~50 ms 지연, 각속도·모터 응답 2~3배 느림에도 완주한다. 반대로 속도 부호·회전행렬
-전치·게이트 법선 반전을 넣으면 실패하므로, 이 점검은 **변환이 틀렸는지 가려낸다.**
-여기서 통과하는 것은 필요조건일 뿐 실기체 성공 보장은 아니다.
+속도 부호·회전행렬 전치·게이트 법선 반전을 넣으면 실패하므로, 이 점검은 **변환이 틀렸는지
+가려낸다.** 여기서 통과하는 것은 필요조건일 뿐 실기체 성공 보장은 아니다.
+
+| 조건                                   | 기본 모델(DR)                    | 이전 모델                        |
+| -------------------------------------- | -------------------------------- | -------------------------------- |
+| 기본                                   | 완주, G7 9.93 s, 4.3 m/s, 51°    | 완주, G7 10.08 s, 2.6 m/s, 24°   |
+| 관측 지연 30 / 50 ms                   | 완주 / 완주                      | 완주 / 완주                      |
+| 각속도·모터 응답 τ = 0.06 s            | 완주                             | 완주                             |
+| 추력 ×0.90 / ×1.10                     | 완주 / 완주                      | 정착 실패 / 완주                 |
+| 지연 50 ms + 응답 τ = 0.06 s           | **추락 (기울기 69°)**            | 완주                             |
+
+기본 모델은 추력 오차에 강해졌지만 훨씬 공격적이다(최대 4~5 m/s, 기울기 50~60°). 지연과 느린
+응답이 겹치면 무너질 수 있으니, 첫 비행은 무선 지연을 줄이고(로그 대역 여유, 동글 가까이)
+섀도 모드로 실제 지연부터 확인할 것.
 
 ### 2. 서버
 

@@ -4,7 +4,9 @@ from glob import glob
 from setuptools import find_packages, setup
 
 package_name = 'crazyflie_rl'
-model = os.path.join('models', 'racing-body-rate-10s-final')
+# models/<이름>/ 마다 share 에 설치 (rl_flight --model-dir 로 고른다)
+models = [(os.path.join('share', package_name, d), glob(os.path.join(d, '*')))
+          for d in sorted(glob(os.path.join('models', '*'))) if os.path.isdir(d)]
 
 setup(
     name=package_name,
@@ -16,8 +18,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*')),
         (os.path.join('share', package_name, 'config'), glob('config/*')),
-        (os.path.join('share', package_name, model), glob(os.path.join(model, '*'))),
-    ],
+    ] + models,
     install_requires=['setuptools'],
     zip_safe=True,
     description='Crazyswarm2 기반 Crazyflie 강화학습 레이싱 정책 실행 패키지',

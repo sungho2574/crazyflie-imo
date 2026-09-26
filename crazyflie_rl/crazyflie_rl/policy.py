@@ -27,9 +27,12 @@ def _ext_hook(code, data):
     return msgpack.ExtType(code, data)
 
 
+DEFAULT_MODEL = 'racing-body-rate-10s-dr-final'   # 도메인 랜덤화 버전. 이전: racing-body-rate-10s-final
+
+
 def default_model_dir():
     """설치된 share → 소스 트리 순으로 기본 모델 폴더를 찾는다."""
-    name = os.path.join('models', 'racing-body-rate-10s-final')
+    name = os.path.join('models', DEFAULT_MODEL)
     try:
         from ament_index_python.packages import get_package_share_directory
         path = os.path.join(get_package_share_directory('crazyflie_rl'), name)
