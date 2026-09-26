@@ -1,0 +1,54 @@
+# 강화학습 레이싱 정책(rl_flight) 전용 로봇 설정 — Qualisys 모캡 + PID + RPYT rate 모드.
+# crazyflie_test/config/crazyflies_mocap.yaml 을 바탕으로 정책에 필요한 것만 바꿨다.
+# ⚠️ URI / 기체 이름 / rigid body 이름은 crazyflies_mocap.yaml 과 같게 유지할 것.
+fileversion: 3
+
+robots:
+  cf231:
+    enabled: true
+    uri: radio://0/80/2M/E7E7E7E7E1
+    initial_position: [0.0, 0.0, 0.0]     # 모캡이 절대 위치를 주므로 원점 의미 없음
+    type: cf21_active
+
+robot_types:
+  cf21_active:
+    motion_capture:
+      enabled: true
+      tracking: "vendor"                   # QTM rigid body(이름 = cf231) 6DOF
+    big_quad: false
+    battery:
+      voltage_warning: 3.8
+      voltage_critical: 3.7
+
+all:
+  reference_frame: "world"
+  firmware_params:
+    commander:
+      enHighLevel: 1                       # 이륙·정렬·착륙은 HLC
+    stabilizer:
+      estimator: 2                         # Kalman (모캡 필수)
+      controller: 1                        # PID — 레거시 rate 명령은 PID 만 그대로 따른다
+    flightmode:
+      stabModeRoll: 0                      # 0 = rate: cmd_vel_legacy 의 roll/pitch 가 각속도(deg/s)
+      stabModePitch: 0
+      stabModeYaw: 0
+  firmware_logging:
+    enabled: true
+    default_topics:
+      pose:
+        frequency: 10                      # rviz·gate_markers 용 (정책은 아래 rl_* 를 쓴다)
+      status:
+        frequency: 1
+    # 정책 관측용 — 로그 블록 하나당 26 바이트 이하
+    custom_topics:
+      rl_pv:                               # 24 B: 위치 [m], 속도 [m/s] (월드)
+        frequency: 100
+        vars: ["stateEstimate.x", "stateEstimate.y", "stateEstimate.z",
+               "stateEstimate.vx", "stateEstimate.vy", "stateEstimate.vz"]
+      rl_att:                              # 24 B: 쿼터니언 xyzw, 모터 PWM m1..m4
+        frequency: 100
+        vars: ["stateEstimate.qx", "stateEstimate.qy", "stateEstimate.qz", "stateEstimate.qw",
+               "motor.m1", "motor.m2", "motor.m3", "motor.m4"]
+      rl_gyro:                             # 12 B: 기체 각속도 [deg/s]
+        frequency: 100
+        vars: ["gyro.x", "gyro.y", "gyro.z"]

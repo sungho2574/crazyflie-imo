@@ -1,12 +1,13 @@
 # crazyflie-imo
 
-Crazyswarm2 기반 Crazyflie 비행 레포. 목적별로 ROS 2 패키지 3개로 나뉜다.
+Crazyswarm2 기반 Crazyflie 비행 레포. 목적별로 ROS 2 패키지 4개로 나뉜다.
 
 | 패키지             | 용도                                                          | launch                                   |
 | ------------------ | ------------------------------------------------------------- | ---------------------------------------- |
 | `crazyflie_test`   | 기본 비행 예제, 기체·mocap 설정, sim 패치, bag→CSV 변환        | `crazyflie_test launch.py`               |
 | `crazyflie_traj`   | Blackbird 스타일 주기 궤적 연속 비행 · 학습 데이터 수집        | (`crazyflie_test` launch 사용)           |
 | `crazyflie_racing` | 게이트 코스: 게이트 맵 → TOGT 시간최적 궤적 → 온보드 궤적 비행 | `crazyflie_racing launch.py`             |
+| `crazyflie_rl`     | 강화학습 레이싱 정책 실행: 무선 상태 → 정책 → 각속도·추력 명령  | `crazyflie_rl launch.py`                 |
 
 - 단일 / 군집, Flow deck(opticalflow) / mocap(Qualisys), sim / 실기체 모두 지원
 - IMU raw · 모터 PWM · pose 를 rosbag 으로 기록 (sim 도 패치로 같은 토픽 발행)
@@ -19,6 +20,7 @@ Crazyswarm2 기반 Crazyflie 비행 레포. 목적별로 ROS 2 패키지 3개로
 - [crazyflie_test — 기본 예제](#crazyflie_test--기본-예제)
 - [crazyflie_traj — 주기 궤적 · 학습 데이터](#crazyflie_traj--주기-궤적--학습-데이터)
 - [crazyflie_racing — 게이트 코스](#crazyflie_racing--게이트-코스)
+- [crazyflie_rl — 강화학습 레이싱 정책](#crazyflie_rl--강화학습-레이싱-정책)
 - [sim IMU/PWM 확장 (서브모듈 패치)](#sim-imupwm-확장-서브모듈-패치)
 - [기록 데이터 · bag 변환](#기록-데이터--bag-변환)
 - [analysis — 오프라인 분석](#analysis--오프라인-분석)
@@ -73,11 +75,22 @@ ros2_ws/src/crazyflie-imo
 │       ├── togt_plan.cpp, CMakeLists.txt
 │       └── params/                 #   크플 동역학·계획 파라미터
 │
+├── crazyflie_rl/                   # 강화학습 레이싱 정책 실행
+│   ├── crazyflie_rl/
+│   │   ├── policy.py               #   체크포인트(msgpack) → numpy MLP 추론, 행동 → 명령
+│   │   ├── racing_obs.py           #   관측 49 생성 + 게이트 진행 추적 (학습 racing.py 이식)
+│   │   ├── rl_flight.py            #   실기체 루프: 무선 로그 → 정책 → cmd_vel_legacy
+│   │   └── sim_check.py            #   간이 시뮬레이션으로 정책·변환 점검 (기체 불필요)
+│   ├── config/crazyflies_rl.yaml   # 모캡 + PID + RPYT rate 모드 + 정책용 100 Hz 로그
+│   ├── launch/launch.py            # 서버 + gate_markers + rviz
+│   └── models/racing-body-rate-10s-final/   # 가중치(best.msgpack)·학습 설정·평가 결과
+│
 └── analysis/                       # 수집 데이터 오프라인 분석 스크립트 (ROS 패키지 아님)
 ```
 
 패키지 의존: `crazyflie_traj`·`crazyflie_racing` → `crazyflie_test`
-(기체/mocap 설정과 `bag_to_csv.py` 를 공유).
+(기체/mocap 설정과 `bag_to_csv.py` 를 공유). `crazyflie_rl` → `crazyflie_racing`(게이트 맵),
+`crazyflie_test`(모캡 설정·기록기).
 
 ## 설치 · 빌드
 
@@ -535,6 +548,114 @@ rviz 의 **주황 사각형**이 이 유효 창이다. 값을 바꾸면 `plan_ga
 | `show_trail`  | true           | 실궤적 표시                                  |
 | `trail_step`  | 0.02           | 점 추가 간격 [m]                             |
 | `trail_max`   | 0              | 자취 최대 점 수 (0=무제한)                   |
+
+## crazyflie_rl — 강화학습 레이싱 정책
+
+게이트 7개를 도는 PPO 정책(body-rate 제어, 학습 목표 G7 10 s)을 실기체에서 돌린다.
+PC 가 무선으로 상태를 받아 정책을 계산하고, **각속도 목표 + 추력**을 다시 보낸다.
+궤적을 기체에 올리는 `crazyflie_racing` 과 달리 **PC 실시간 제어**라 통신이 끊기면 제어를 잃는다.
+
+    무선 로그 100 Hz (rl_pv · rl_att · rl_gyro)
+      → 관측 49 → 정책(MLP 256×2, tanh) → [ωx, ωy, ωz (rad/s), 총추력 (N)]
+      → cmd_vel_legacy (RPYT rate 모드) → 펌웨어 PID 각속도 루프
+
+| 실행 명령      | 역할                                                      |
+| -------------- | --------------------------------------------------------- |
+| `rl_sim_check` | 간이 시뮬레이션으로 정책이 코스를 도는지 점검 (ROS·기체 불필요) |
+| `rl_flight`    | 실기체 비행 (`--shadow` 면 명령 없이 관측·정책 출력만 기록) |
+
+### 모델
+
+`models/racing-body-rate-10s-final/` — 학습 산출물의 가중치·설정·평가 결과(소스 코드는 제외).
+JAX·flax 없이 `msgpack` + numpy 로 추론한다. 학습 평가: 64/64 완주, G7 중앙 10.00 s,
+최대 2.66 m/s, 최대 기울기 28.6°.
+
+| 관측 (49)                                   | 행동 → 명령 (4)                               |
+| ------------------------------------------- | --------------------------------------------- |
+| 다음 목표 3개 상대위치 ×0.5 (9)             | ωx, ωy: ±12 rad/s                             |
+| 그 목표들의 통과 법선 (9, 결승점은 0)       | ωz: ±8 rad/s                                  |
+| 현재 목표 one-hot (8: 게이트 1..7, 결승)    | 총추력: 0.051 ~ 0.48 N                        |
+| 회전행렬 (9) · 속도/4 (3) · 각속도/10 (3)   |                                               |
+| 로터 RPM/25000 (4) · 직전 행동 (4)          |                                               |
+
+결승점 = `gates.yaml` 의 start 상공(1.5, −2.0, 1.25). 게이트 통과는 학습과 같이 다음 게이트
+평면을 진행 방향으로 넘을 때 개구부(반폭 0.19 m) 안이면 센다.
+
+### 1. 오프라인 점검 (먼저)
+
+```bash
+ros2 run crazyflie_rl rl_sim_check
+ros2 run crazyflie_rl rl_sim_check --latency 0.03 --rate-tau 0.05
+```
+
+crazyflow `cf2x_L250` 파라미터의 강체 모델(각속도·모터는 1차 지연으로 단순화)로 정책을 돌린다.
+현재 모델은 G1..G7 을 순서대로 지나 G7 10.08 s, 12.7 s 에 결승 정착(학습 평가와 일치).
+관측 20~50 ms 지연, 각속도·모터 응답 2~3배 느림에도 완주한다. 반대로 속도 부호·회전행렬
+전치·게이트 법선 반전을 넣으면 실패하므로, 이 점검은 **변환이 틀렸는지 가려낸다.**
+여기서 통과하는 것은 필요조건일 뿐 실기체 성공 보장은 아니다.
+
+### 2. 서버
+
+```bash
+ros2 launch crazyflie_rl launch.py
+```
+
+`config/crazyflies_rl.yaml` 로 서버를 띄운다(모캡 설정은 `crazyflie_test` 것 사용).
+- `stabilizer.controller: 1` (**PID**) — Mellinger 는 레거시 rate 명령을 받지 않고 수평을 잡으려 한다.
+- `flightmode.stabModeRoll/Pitch/Yaw: 0` — `cmd_vel_legacy` 의 roll/pitch/yaw 를 각속도로 해석.
+- 정책용 로그 100 Hz: `rl_pv`(위치·속도) · `rl_att`(쿼터니언·모터 PWM) · `rl_gyro`(각속도).
+- ⚠️ URI·기체 이름은 `crazyflie_test/config/crazyflies_mocap.yaml` 과 같게 유지할 것.
+- sim 백엔드는 `cmd_vel_legacy` 를 구현하지 않아 쓸 수 없다.
+
+### 3. 섀도 모드 (명령 없이 관측 확인)
+
+```bash
+ros2 run crazyflie_rl rl_flight --shadow --hover-pwm <호버 PWM>
+```
+
+아무 명령도 보내지 않고, 들어오는 상태로 관측을 만들어 정책 출력을 `~/flight_logs/rl_shadow_*.csv`
+에 기록한다. 다른 터미널에서 `gate_flight --mocap` 으로 코스를 도는 동안 켜 두면, 게이트
+진행 추적·관측 값·정책이 낼 명령(각속도·추력)이 실제 비행과 어울리는지 날리기 전에 볼 수 있다.
+`--hover-pwm` 은 호버 중 `motor.m1..m4` 평균(모르면 생략 — crazyflow 기본 모델 사용).
+
+### 4. 비행
+
+```bash
+ros2 run crazyflie_rl rl_flight --record
+```
+
+1. 지상에서 추력 0 레거시 패킷으로 thrust lock 을 풀고 HLC 로 start 상공까지 이륙·정렬
+2. **호버 PWM 보정** — 호버 중 모터 PWM 평균을 학습 기체 호버 추력(0.313 N)에 맞춘다.
+   추력 명령(N→PWM)과 로터 관측(PWM→RPM) 모두 이 비율을 쓴다. (간이 점검상 추력 명령
+   스케일은 ±5% 안이어야 정착까지 되고, 로터 관측은 ±20% 까지 버틴다.)
+3. 정책 비행 100 Hz. 게이트 통과마다 시각·속도 출력
+4. G7 이후 결승점 10 cm·0.2 m/s 안에 0.5 s 머무르면 완주 → HLC 로 넘겨 착륙
+
+중단 조건(→ 즉시 HLC 로 넘겨 현재 위치 유지 후 착륙): 기울기 > `--max-tilt`(70°), 벽까지
+< `--wall-margin`(0.3 m), 고도 < `--min-z`(0.2 m), 상태 로그 끊김 > `--stale`(0.1 s),
+`--max-time`(25 s) 초과. 사전 점검: 파라미터(PID·rate 모드) 확인, start 상공 15 cm·0.2 m/s 이내.
+
+| 옵션                | 기본            | 설명                                              |
+| ------------------- | --------------- | ------------------------------------------------- |
+| `--shadow`          | -               | 명령 없이 관측·정책 출력만 기록                   |
+| `--hover-pwm`       | 측정            | 호버 PWM 직접 지정 (보정 생략)                    |
+| `--calib-time`      | 2.0             | 호버 PWM 측정 시간 [s]                            |
+| `--aperture-margin` | 0.0             | 게이트 통과 판정 개구부 여유 [m]                  |
+| `--record`          | -               | rosbag 도 기록 (`~/flight_logs/rl_<시각>/`)       |
+| `--log-dir`         | `~/flight_logs` | 매 스텝 CSV(`rl_flight_<시각>.csv`) 폴더          |
+| `--dry-run`         | -               | ROS 없이 정책 로드·start 호버에서의 첫 명령만 출력 |
+
+### 실기체 차이 (확인 필요)
+
+- **각속도 제어기** — 학습은 crazyflow Mellinger 계열 rate 루프(자세 항 제거), 실기체는 펌웨어
+  PID rate 루프다. 응답이 다르면 궤적이 달라진다.
+- **추력 모델** — 호버 한 점으로 선형 보정한다. 실제 PWM–추력은 비선형이고 배터리에 따라 변한다.
+- **지연** — 무선 로그 + 명령 왕복(수십 ms). 학습은 지연 없음.
+- **기체** — 학습 기체는 0.0319 kg(cf2x_L250). 마커 덱 등으로 더 무거우면 호버 보정이 흡수하는 건
+  추력 스케일뿐이다.
+- **코스** — 학습 코스 파일(`seven_gates.yaml`)과 이 레포 `gates.yaml` 은 해시가 달라 동일함을
+  파일로 확인하지 못했다. 간이 점검에서 학습 평가와 같은 시각에 7개를 통과하는 것이 같은 코스라는
+  근거다. 게이트를 옮기면 정책은 재학습이 필요하다.
 
 ## sim IMU/PWM 확장 (서브모듈 패치)
 

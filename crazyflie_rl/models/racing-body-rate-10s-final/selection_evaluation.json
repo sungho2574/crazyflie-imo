@@ -1,0 +1,30 @@
+{
+  "episodes": 64,
+  "completed": 64,
+  "completion_rate": 1.0,
+  "gate7_surviving": 64,
+  "mean_gates": 7.0,
+  "gate7_time_median_s": 10.002642631530762,
+  "gate7_time_max_s": 10.061223983764648,
+  "return_confirmation_median_s": 13.34999942779541,
+  "return_confirmation_max_s": 13.639999389648438,
+  "settled_return_median_s": 12.84999942779541,
+  "settled_return_max_s": 13.139999389648438,
+  "min_frame_gap_m": 0.014734400436282158,
+  "completed_min_frame_gap_m": 0.014734400436282158,
+  "clearance_10cm_completions": 0,
+  "max_speed_m_s": 2.6561646461486816,
+  "max_tilt_deg": 28.55417823791504,
+  "completed_path_length_mean_m": 21.987525939941406,
+  "failures": 0,
+  "gate_counts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    64
+  ]
+}

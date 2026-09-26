@@ -1,0 +1,24 @@
+{
+  "task": "timed G7 test policy, controller distillation and DAgger",
+  "source_sha256": {
+    "trajectory": "494d78464f17f114d54c44e676b864f321905daca993503a038bc88d44aff04b",
+    "quad": "5e4677d48da50fb18646d465b010cb40b03872914fa737fb94705e8a59a4b8e0",
+    "course": "371be7c86c963feb776f13768684649b34e33e36c405b7756869defcbfa84c97"
+  },
+  "created_utc": "2026-09-24T09:07:05.030250+00:00",
+  "control_mode": "body_rate",
+  "action_units": [
+    "rad/s",
+    "rad/s",
+    "rad/s",
+    "N"
+  ],
+  "target_gate7_s": 10.0,
+  "selection_seed": 2026,
+  "teacher_at_inference": false,
+  "time_in_policy_observation": false,
+  "selection_rule": "completion count, G7 survivors, gate count, absolute error from target G7 time",
+  "selected_checkpoint": "runs/racing-body-rate-10s-v1/best.msgpack",
+  "selected_dagger_iteration": 525,
+  "checkpoint_sha256": "269e09a86b4fd7eff9d9f717eabb672a7ca61a84379e35de91a4b00cdc8d1263"
+}
