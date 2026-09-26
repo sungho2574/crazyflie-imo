@@ -6,7 +6,7 @@ fileversion: 3
 robots:
   cf231:
     enabled: true
-    uri: radio://0/80/2M/E7E7E7E7E1
+    uri: radio://0/80/2M/E7E7E7E7E9
     initial_position: [0.0, 0.0, 0.0]     # 모캡이 절대 위치를 주므로 원점 의미 없음
     type: cf21_active
 

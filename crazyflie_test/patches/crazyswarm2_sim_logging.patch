@@ -1,3 +1,16 @@
+diff --git a/crazyflie/config/server.yaml b/crazyflie/config/server.yaml
+index 59a3ebc..5feb62a 100644
+--- a/crazyflie/config/server.yaml
++++ b/crazyflie/config/server.yaml
+@@ -11,7 +11,7 @@
+         min_broadcast_receive_rate: 0.9 # requires status topic to be enabled
+         publish_stats: false
+     firmware_params:
+-      query_all_values_on_connect: False
++      query_all_values_on_connect: True   # rl_flight getParam/setParam 이 firmware 파라미터를 읽으려면 필요
+     # simulation related
+     sim:
+       max_dt: 0 #0.1              # artificially limit the step() function (set to 0 to disable)
 diff --git a/crazyflie_sim/crazyflie_sim/crazyflie_server.py b/crazyflie_sim/crazyflie_sim/crazyflie_server.py
 index e1e280c..7ab5ee5 100755
 --- a/crazyflie_sim/crazyflie_sim/crazyflie_server.py

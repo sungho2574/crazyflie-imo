@@ -12,7 +12,7 @@ fileversion: 3
 robots:
   cf231:
     enabled: true
-    uri: radio://0/80/2M/E7E7E7E7E7      # TODO: 실제 URI로 교체
+    uri: radio://0/80/2M/E7E7E7E7E9      # TODO: 실제 URI로 교체
     initial_position: [2.5, -3.4, 0.0]   # = gates.yaml 의 start
     type: cf21_flow
 

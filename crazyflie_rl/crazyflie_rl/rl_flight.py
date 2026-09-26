@@ -115,13 +115,16 @@ def to_legacy(cmd, thrust_map):
     crazyflie_server: roll = linear.y, pitch = -linear.x, yawrate = angular.z, thrust = linear.z
     펌웨어 RPYT rate 모드 + PID (controller_pid.c):
         roll  : attitudeRate.roll  = roll         ↔ gyro.x      → linear.y  = +ωx
-        pitch : attitudeRate.pitch = pitch        ↔ -gyro.y     → linear.x  = +ωy
+        pitch : attitudeRate.pitch = pitch                      → linear.x  = -ωy
         yaw   : attitudeRate.yaw   = -yawrate     ↔ yaw(CCW)    → angular.z = -ωz
+    ⚠️ pitch 부호: 서버가 pitch = -linear.x 로 뒤집으므로 linear.x = -ωy 로 줘야 한다.
+       (실기체 로그 rl_flight_20260926_133020: cmd_wy 와 실제 wy 부호 반대 → tilt 발산 크래시 확인.
+        예전 linear.x = +ωy 는 pitch 반전이었음.)
     (단위 deg/s. 추력은 모터 기준 PWM — 파워 분배가 여기에 각 축 보정을 더한다.)
     """
     wx, wy, wz = np.degrees(cmd[:3])
     # 반환 순서 = send(roll→linear.y, pitch→linear.x, yawrate→angular.z, thrust→linear.z)
-    return float(wx), float(wy), float(-wz), float(thrust_map.base_pwm(cmd[3]))
+    return float(wx), float(-wy), float(-wz), float(thrust_map.base_pwm(cmd[3]))
 
 
 def dry_run(policy, observer, finish):
