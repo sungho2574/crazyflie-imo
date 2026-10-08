@@ -1,0 +1,110 @@
+initState:
+  pos: [1.5, -2, 1.25]
+  vel: [0, 0, 0]
+  acc: [0, 0, 0]
+  jer: [0, 0, 0]
+  rot: [1, 0, 0, 0]
+  cthrustmass: 9.8066
+  euler: [0, 0, 0]
+
+endState:
+  pos: [1.5, -2, 1.25]
+  vel: [0, 0, 0]
+  acc: [0, 0, 0]
+  jer: [0, 0, 0]
+  rot: [1, 0, 0, 0]
+  cthrustmass: 9.8066
+  euler: [0, 0, 0]
+
+orders: ['Gate1', 'Gate2', 'Gate3', 'Gate4', 'Gate5', 'Gate6', 'Gate7']
+
+Gate1:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [1.5, -1.5, 1.25]
+  rpy: [0.0, -90.0, -90]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true
+
+Gate2:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [0, 2, 1.25]
+  rpy: [0.0, -90.0, -130]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true
+
+Gate3:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [2, 2, 1.25]
+  rpy: [0.0, -90.0, 120]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true
+
+Gate4:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [0, 0, 1.25]
+  rpy: [0.0, -90.0, 0]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true
+
+Gate5:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [-1.5, 2, 1.25]
+  rpy: [0.0, -90.0, -90]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true
+
+Gate6:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [-1.5, 2, 0.75]
+  rpy: [0.0, -90.0, 90]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true
+
+Gate7:
+  type: 'RectanglePrisma'
+  name: 'cf_gate'
+  position: [-1.5, -1.5, 1.25]
+  rpy: [0.0, -90.0, 150]
+  width: 0.5
+  height: 0.5
+  marginW: 0.32
+  marginH: 0.32
+  length: 0
+  midpoints: 0
+  stationary: true

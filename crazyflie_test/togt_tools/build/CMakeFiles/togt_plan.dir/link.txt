@@ -1,0 +1,1 @@
+ccache /usr/bin/c++ -O3 -DNDEBUG CMakeFiles/togt_plan.dir/togt_plan.cpp.o -o togt_plan  libdrolib.a 

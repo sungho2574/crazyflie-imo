@@ -1,0 +1,56 @@
+imo_flight:
+  ros__parameters:
+    robot: cf231
+    backend: sim
+    firmware_controller: mellinger  # same inner controller as CFSim collection
+    sensor_profile: ideal_sim
+    imo_repo: /home/artemis-2/crazyflie/learned_inertial_model_odometry
+    checkpoint: ''  # empty = bundled CFSim epoch 85 weights
+    model_parameters: ''
+    trajectory: circle  # hover, circle, figure8, csv
+    yaw_mode: forward  # matches CFSim yawForward training; fixed available for comparison
+    trajectory_csv: ''  # duration + x/y/z/yaw polynomial coefficients
+    timescale: 1.0
+    initial_position: [0.0, 0.0, 0.0]
+    initial_yaw_deg: 0.0
+    height: 1.0
+    radius: 1.0
+    period: 6.283185307179586  # CFSim circle cruise speed = 1 m/s
+    ramp_duration: 2.0  # same schedule as crazyflie_traj data collection
+    laps: 1
+    takeoff_duration: 4.0
+    settle_duration: 2.0
+    land_duration: 4.0
+    mass: 0.034
+    thrust_scale: 1.0
+    accel_scale: 1.0
+    update_freq: 20.0
+    # Online uncertainty differs from offline GT-initialized cruise evaluation.
+    displacement_sigma: [0.3, 0.3, 0.3]
+    # Ideal sim has no sensor noise; do not use these uncertainties on hardware.
+    initial_attitude_sigma_deg: 0.01
+    initial_yaw_sigma_deg: 0.1
+    initial_velocity_sigma: 0.001
+    innovation_gate: 7.815  # chi-square(3), 95%; active from first update
+    max_position_correction: 0.1
+    max_velocity_correction: 0.1
+    max_attitude_correction_deg: 0.5
+    sigma_na: 0.001
+    sigma_ng: 0.00001
+    sigma_nba: 0.000001
+    sigma_nbg: 0.000001
+    calibration_samples: 100
+    sensor_pair_tolerance_ms: 5
+    sensor_max_gap: 0.05
+    watchdog_seconds: 0.3
+    max_distance: 5.0
+    max_speed: 5.0
+    max_tracking_error: 3.0
+    max_tilt_deg: 20.0
+    max_pwm: 60000
+    kp: [2.0, 2.0, 4.0]
+    kd: [2.0, 2.0, 2.5]
+    min_battery: 3.7
+    autostart: false
+    exit_on_complete: false
+    log_dir: ~/flight_logs/imo

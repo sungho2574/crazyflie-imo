@@ -1,0 +1,62 @@
+{
+  "selected": "results/CFSim/checkpoints/model_net/checkpoint_best.pt",
+  "epoch": 85,
+  "source_sha256": "bc0856510db20414a9cc812e05adc7354dcc1842212f07b96c4b0739f80d69e4",
+  "export_sha256": "104eddafdff9175af9614a9ea80751ea7eb3a2a6ed12cf6858ec0515e0a1fb09",
+  "criterion": "Lowest mean unaligned EKF ATE on 14 common available CFSim test sequences, including star 2.0 m/s. Stored evaluations, not retrained. Filter tuning differs between runs.",
+  "missing": "circle/yawForward/maxSpeed1p0/test final trajectory output is absent",
+  "sequences": [
+    "circle/yawForward/maxSpeed2p0/test",
+    "circle/yawForward/maxSpeed1p5/test",
+    "clover/yawForward/maxSpeed2p0/test",
+    "clover/yawForward/maxSpeed1p0/test",
+    "clover/yawForward/maxSpeed1p5/test",
+    "oval/yawForward/maxSpeed2p0/test",
+    "oval/yawForward/maxSpeed1p0/test",
+    "oval/yawForward/maxSpeed1p5/test",
+    "star/yawForward/maxSpeed2p0/test",
+    "star/yawForward/maxSpeed1p0/test",
+    "star/yawForward/maxSpeed1p5/test",
+    "figure8/yawForward/maxSpeed2p0/test",
+    "figure8/yawForward/maxSpeed1p0/test",
+    "figure8/yawForward/maxSpeed1p5/test"
+  ],
+  "comparison": [
+    {
+      "run": "results/CFSim",
+      "median_ate_m": 0.1463641581957855,
+      "mean_ate_m": 0.2811824931862063,
+      "worst_ate_m": 1.9849845598255982
+    },
+    {
+      "run": "results_sweep/D15_prefix_s0/CFSim",
+      "median_ate_m": 0.3535439138982169,
+      "mean_ate_m": 0.5714991266891065,
+      "worst_ate_m": 2.4484160451424275
+    },
+    {
+      "run": "results_sweep/D40_prefix_s0/CFSim",
+      "median_ate_m": 0.2650093638594369,
+      "mean_ate_m": 0.4509786334544415,
+      "worst_ate_m": 1.629648288613276
+    },
+    {
+      "run": "results_sweep/D5_prefix_s0/CFSim",
+      "median_ate_m": 1.517055194195515,
+      "mean_ate_m": 1.5960937992847295,
+      "worst_ate_m": 2.845049757659327
+    },
+    {
+      "run": "results_sweep/D80_prefix_s0/CFSim",
+      "median_ate_m": 0.13114858729280587,
+      "mean_ate_m": 0.42239421654556236,
+      "worst_ate_m": 3.409861638772138
+    },
+    {
+      "run": "results_sweep/Dfull_prefix_s0/CFSim",
+      "median_ate_m": 0.14326421556481575,
+      "mean_ate_m": 0.3139309319777664,
+      "worst_ate_m": 2.332447822591844
+    }
+  ]
+}

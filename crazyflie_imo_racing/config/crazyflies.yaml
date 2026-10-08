@@ -1,0 +1,31 @@
+fileversion: 3
+robots:
+  cf231:
+    enabled: true
+    uri: radio://0/80/2M/E7E7E7E7E9
+    initial_position: [0.0, 0.0, 0.0]
+    type: cf21
+robot_types:
+  cf21:
+    motion_capture: {enabled: false, tracking: vendor}
+    big_quad: false
+    battery: {voltage_warning: 3.8, voltage_critical: 3.7}
+all:
+  reference_frame: world
+  firmware_params:
+    commander: {enHighLevel: 1}
+    stabilizer: {estimator: 2, controller: 2}
+    # Host owns position control. Firmware handles only attitude/rate loops.
+    flightmode: {stabModeRoll: 1, stabModePitch: 1, stabModeYaw: 0}
+  firmware_logging:
+    enabled: true
+    default_topics:
+      status: {frequency: 1}
+      pose: {frequency: 50}  # bootstrap handoff only, never IMO flight feedback
+    custom_topics:
+      imu_raw:
+        frequency: 100
+        vars: [acc.x, acc.y, acc.z, gyro.x, gyro.y, gyro.z]
+      motor_pwm:
+        frequency: 100
+        vars: [motor.m1, motor.m2, motor.m3, motor.m4]
